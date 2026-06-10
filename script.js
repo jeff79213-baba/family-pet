@@ -27,6 +27,7 @@ function refreshUI() {
     renderAdminAvatarSelector();
     renderAdminPendingTasks();
     renderThemeSelector();
+    renderSettingsUI();
     document.getElementById('adminNavLink').style.display = 'inline-block';
   } else {
     document.getElementById('adminNavLink').style.display = 'none';
@@ -37,6 +38,8 @@ function refreshUI() {
   renderAlbum();
   renderExamHistory();
   updateGachaUI();
+  renderBossPage();
+  renderExpedition();
 }
 
 function updateNavCoins() {
@@ -370,6 +373,9 @@ function initGame() {
         pets: [],
         todayTasks: {},
         lastBossAt: null,
+        expedition: null,
+        expeditionRewards: 0,
+        lowAnimMode: false,
         createdAt: new Date().toISOString()
       });
     });
@@ -536,7 +542,7 @@ function pullGacha() {
   if (!pool.length) pool = allPets.filter(p => !p.isLegendary && p.stage === 1);
   const chosen = pool[Math.floor(Math.random() * pool.length)];
 
-  addPetToMember(member.id, chosen.id);
+  const result = addPetToMember(member.id, chosen.id);
 
   const resultDiv = document.getElementById('gachaResult');
   resultDiv.classList.remove('hidden');
@@ -549,18 +555,39 @@ function pullGacha() {
   `;
 
   setTimeout(() => {
-    resultDiv.className = 'gacha-result ' + (chosen.isLegendary ? 'legendary-reveal' : '');
-    resultDiv.innerHTML = `
-      <h3>🎉 獲得 ${chosen.name}！</h3>
-      <span style="display:inline-block;padding:4px 12px;border-radius:12px;background:${getTypeColor(chosen.type)};color:white;font-size:0.8rem;margin:8px 0;">
-        ${chosen.type}
-      </span>
-      <p>${chosen.isLegendary ? '🌟 傳說寵物！' : '階段 ' + chosen.stage}</p>
-      ${usedFreePull ? '<p style="color:#f59e0b;font-weight:bold;">🎫 使用免費抽獎券</p>' : ''}
-      <img src="${getImageUrl(chosen.id)}" alt="${chosen.name}"
-           onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${chosen.emoji||'🐾'}</text></svg>'">
-    `;
-    refreshUI();
+    if (result.type === 'evolution') {
+      resultDiv.className = 'gacha-result';
+      resultDiv.innerHTML = `
+        <h3>🎉 重複寵物！觸發進化！</h3>
+        <p style="color:var(--success);font-weight:bold;margin:12px 0;">
+          ${result.oldTemplate.name} → ${result.newTemplate.name}
+        </p>
+        <p>${usedFreePull ? '🎫 使用免費抽獎券' : '💰 花費 30 金幣'}</p>
+      `;
+      refreshUI();
+      setTimeout(() => showEvoModal(result.oldTemplate, result.newTemplate), 600);
+    } else if (result.type === 'duplicate') {
+      resultDiv.className = 'gacha-result';
+      resultDiv.innerHTML = `
+        <h3>🔄 重複寵物！戰力提升！</h3>
+        <p>${chosen.name} 戰力 +20（當前 ${result.pet.power}）</p>
+        <p>${usedFreePull ? '🎫 使用免費抽獎券' : '💰 花費 30 金幣'}</p>
+      `;
+      refreshUI();
+    } else {
+      resultDiv.className = 'gacha-result ' + (chosen.isLegendary ? 'legendary-reveal' : '');
+      resultDiv.innerHTML = `
+        <h3>🎉 獲得 ${chosen.name}！</h3>
+        <span style="display:inline-block;padding:4px 12px;border-radius:12px;background:${getTypeColor(chosen.type)};color:white;font-size:0.8rem;margin:8px 0;">
+          ${chosen.type}
+        </span>
+        <p>${chosen.isLegendary ? '🌟 傳說寵物！' : '階段 ' + chosen.stage}</p>
+        ${usedFreePull ? '<p style="color:#f59e0b;font-weight:bold;">🎫 使用免費抽獎券</p>' : ''}
+        <img src="${getImageUrl(chosen.id)}" alt="${chosen.name}"
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${chosen.emoji||'🐾'}</text></svg>'">
+      `;
+      refreshUI();
+    }
   }, 1200);
 }
 
@@ -576,7 +603,7 @@ function renderPetList() {
   }
 
   container.innerHTML = member.pets.map(pet => `
-    <div class="pet-card ${pet.isLegendary ? 'legendary' : ''}">
+    <div class="pet-card ${pet.isLegendary ? 'legendary' : ''}" onclick="showPetCard('${pet.instanceId}')">
       <img src="${getImageUrl(pet.templateId)}"
            alt="${pet.name}"
            onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🐾</text></svg>'">
@@ -585,6 +612,7 @@ function renderPetList() {
         ${pet.type}
       </span>
       <div class="pet-stage">${pet.isLegendary ? '🌟 傳說' : '階段 ' + pet.stage}</div>
+      <div class="pet-power-badge">⚔️ ${pet.power || 0}</div>
     </div>
   `).join('');
 }
@@ -599,8 +627,10 @@ function renderAlbum() {
 
   container.innerHTML = window.PET_DATABASE.map(pet => {
     const has = collectedIds.has(pet.id);
+    const member = getCurrentMember();
+    const ownedPet = has ? member.pets.find(p => p.templateId === pet.id) : null;
     return `
-      <div class="pet-card ${has ? '' : 'unknown'}">
+      <div class="pet-card ${has ? '' : 'unknown'}" ${ownedPet ? `onclick="showPetCard('${ownedPet.instanceId}')"` : ''}>
         <img src="${has ? getImageUrl(pet.id) : ''}"
              alt="${pet.name}"
              onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${has ? (pet.emoji||'🐾') : '❓'}</text></svg>'">
@@ -706,6 +736,342 @@ function showToast(message) {
     toast.classList.remove('show');
     setTimeout(() => toast.remove(), 300);
   }, 2500);
+}
+
+// ====== 寵物卡片彈窗 ======
+function showPetCard(instanceId) {
+  const member = getCurrentMember();
+  if (!member) return;
+  const pet = member.pets.find(p => p.instanceId === instanceId);
+  if (!pet || !window.PET_DATABASE) return;
+
+  const template = window.PET_DATABASE.find(p => p.id === pet.templateId);
+  const modal = document.getElementById('petCardModal');
+  const content = document.getElementById('petCardContent');
+
+  document.getElementById('petCardName').textContent = pet.name;
+  const badge = document.getElementById('petCardTypeBadge');
+  badge.textContent = pet.type;
+  badge.style.background = getTypeColor(pet.type);
+
+  document.getElementById('petCardStage').textContent = pet.isLegendary ? '🌟 傳說寵物' : `第 ${pet.stage} 階段`;
+  document.getElementById('petCardImage').src = getImageUrl(pet.templateId);
+  document.getElementById('petCardType').textContent = pet.type;
+  document.getElementById('petCardPower').textContent = pet.power || 0;
+  document.getElementById('petCardStageInfo').textContent = pet.isLegendary ? '傳說' : `階段 ${pet.stage}`;
+  document.getElementById('petCardDate').textContent = new Date(pet.obtainedAt).toLocaleDateString('zh-TW');
+
+  // Evolution chain
+  const evoContainer = document.getElementById('petCardEvolution');
+  const chain = getEvolutionChain(pet.templateId);
+  if (chain && chain.length > 1) {
+    evoContainer.innerHTML = '<div class="evo-chain-label">進化階段</div><div class="evo-chain">' +
+      chain.map((c, i) => {
+        const isCurrent = c.id === pet.templateId;
+        const isOwned = member.pets.some(p => p.templateId === c.id);
+        return `<div class="evo-chain-step ${isCurrent ? 'current' : ''} ${isOwned ? 'owned' : ''}">
+          <img src="${getImageUrl(c.id)}" alt="${c.name}" onerror="this.style.display='none'">
+          <span>${c.name}</span>
+          ${isCurrent ? '<span class="evo-current-badge">✓</span>' : ''}
+        </div>${i < chain.length - 1 ? '<span class="evo-chain-arrow">→</span>' : ''}`;
+      }).join('') + '</div>';
+  } else {
+    evoContainer.innerHTML = '';
+  }
+
+  // Legendary effects
+  const sparkle = document.getElementById('petCardSparkle');
+  if (pet.isLegendary) {
+    content.classList.add('legendary-card');
+    sparkle.style.display = 'block';
+  } else {
+    content.classList.remove('legendary-card');
+    sparkle.style.display = 'none';
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closePetCard(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('petCardModal').classList.add('hidden');
+}
+
+// ====== 進化動畫 ======
+function showEvoModal(oldTemplate, newTemplate) {
+  const modal = document.getElementById('evoModal');
+  document.getElementById('evoSubtitle').textContent =
+    `${getCurrentMember()?.name || ''} 的 ${oldTemplate.name} 累積能量，進化成新姿態！`;
+  document.getElementById('evoBeforeImg').src = getImageUrl(oldTemplate.id);
+  document.getElementById('evoBeforeName').textContent = oldTemplate.name;
+  document.getElementById('evoAfterImg').src = getImageUrl(newTemplate.id);
+  document.getElementById('evoAfterName').textContent = newTemplate.name;
+  modal.classList.remove('hidden');
+}
+
+function closeEvoModal() {
+  document.getElementById('evoModal').classList.add('hidden');
+}
+
+// ====== Boss 戰 ======
+function renderBossPage() {
+  const member = getCurrentMember();
+  const container = document.getElementById('bossList');
+  const cooldownEl = document.getElementById('bossCooldown');
+  const resultEl = document.getElementById('bossBattleResult');
+  if (!member || !container) return;
+
+  if (!member.pets || member.pets.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:#999;padding:40px;">還沒有寵物，先去抽扭蛋吧！</p>';
+    return;
+  }
+
+  const canFight = canFightBoss(member.id);
+  if (!canFight) {
+    const remaining = getBossCooldownRemaining(member.id);
+    const hours = Math.floor(remaining / 3600000);
+    const mins = Math.floor((remaining % 3600000) / 60000);
+    cooldownEl.style.display = 'block';
+    cooldownEl.innerHTML = `⏳ 冷卻中，還剩 ${hours} 小時 ${mins} 分鐘`;
+  } else {
+    cooldownEl.style.display = 'none';
+  }
+
+  const unlocked = getUnlockedBosses();
+  const strongest = [...member.pets].sort((a, b) => (b.power || 0) - (a.power || 0))[0];
+
+  container.innerHTML = unlocked.map(boss => `
+    <div class="boss-card ${!canFight ? 'disabled' : ''}">
+      <div class="boss-emoji">${boss.emoji}</div>
+      <div class="boss-info">
+        <div class="boss-name">${boss.name}</div>
+        <span class="boss-type" style="background:${boss.color}">${boss.type}</span>
+        <div class="boss-stats">
+          <span>❤️ ${boss.hp} HP</span>
+          <span>💰 ${boss.reward}</span>
+        </div>
+      </div>
+      <div class="boss-pet-select">
+        <div class="boss-strongest">
+          最強：${strongest ? `${strongest.name} (⚔️${strongest.power || 0})` : '無寵物'}
+          <span class="boss-type-tag" style="background:${getTypeColor(strongest?.type || '一般')}">${strongest?.type || '-'}</span>
+        </div>
+        <button class="boss-fight-btn" onclick="startBossFight(${boss.id}, '${strongest?.instanceId || ''}')"
+                ${!canFight || !strongest ? 'disabled' : ''}>
+          ⚔️ 挑戰
+        </button>
+      </div>
+      ${canFight && strongest ? `<div class="boss-advantage-hint">${TYPE_ADVANTAGE[strongest.type]?.includes(boss.type) ? '✨ 屬性相剋！' : '一般攻擊'}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function startBossFight(bossId, petInstanceId) {
+  const member = getCurrentMember();
+  if (!member) return;
+
+  const resultEl = document.getElementById('bossBattleResult');
+  resultEl.classList.remove('hidden');
+
+  // Spinning animation
+  resultEl.innerHTML = `
+    <div class="battle-animation">
+      <div class="battle-fighter">
+        <div class="battle-pet-emoji">🐾</div>
+        <div class="battle-vs">⚔️</div>
+        <div class="battle-boss-emoji" id="bossEmoji">🐉</div>
+      </div>
+      <div class="spinner"></div>
+      <p style="margin-top:12px;font-weight:bold;">⚔️ 戰鬥中...</p>
+    </div>
+  `;
+
+  setTimeout(() => {
+    const result = fightBoss(member.id, bossId, petInstanceId);
+    if (!result || result.error) {
+      resultEl.innerHTML = `<p style="color:var(--accent-red);">❌ ${result?.error || '戰鬥失敗'}</p>`;
+      return;
+    }
+
+    const advLabel = result.isAdvantage ? '✨ 屬性相剋' : '一般攻擊';
+    if (result.win) {
+      resultEl.innerHTML = `
+        <div class="battle-win">
+          <h3>🎉 勝利！</h3>
+          <div class="battle-damage">${result.damage} 傷害</div>
+          <div class="battle-tag">${advLabel}</div>
+          <div class="battle-reward">💰 +${result.reward} 金幣</div>
+          <button class="boss-fight-btn" onclick="document.getElementById('bossBattleResult').classList.add('hidden');renderBossPage();">確認</button>
+        </div>
+      `;
+    } else {
+      resultEl.innerHTML = `
+        <div class="battle-lose">
+          <h3>💪 ${result.damage} 傷害！還差一點！</h3>
+          <div class="battle-tag">${advLabel}</div>
+          <p style="color:var(--text-muted);">繼續培養寵物再來挑戰！</p>
+          <button class="boss-fight-btn" onclick="document.getElementById('bossBattleResult').classList.add('hidden');renderBossPage();">確認</button>
+        </div>
+      `;
+    }
+    renderBossPage();
+    updateNavCoins();
+    refreshUI();
+  }, 1500);
+}
+
+// ====== 遠征探險 ======
+function renderExpedition() {
+  const member = getCurrentMember();
+  const statusEl = document.getElementById('expeditionStatus');
+  const teamEl = document.getElementById('expeditionTeam');
+  const resultEl = document.getElementById('expeditionResult');
+  if (!member || !statusEl) return;
+
+  const expStatus = getExpeditionStatus(member.id);
+
+  if (expStatus && expStatus.status === 'completed') {
+    statusEl.innerHTML = `
+      <div class="expedition-complete">
+        <p>🎊 遠征完成！</p>
+        <button class="expedition-claim-btn" onclick="claimExpedition()">🎁 領取獎勵</button>
+      </div>
+    `;
+    teamEl.innerHTML = '';
+    return;
+  }
+
+  if (expStatus && expStatus.status === 'ongoing') {
+    const pct = Math.floor(expStatus.progress);
+    statusEl.innerHTML = `
+      <div class="expedition-ongoing">
+        <p>🌍 探險中...</p>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" style="width:${pct}%"></div>
+        </div>
+        <p class="expedition-pct">${pct}%</p>
+      </div>
+    `;
+    teamEl.innerHTML = '';
+    return;
+  }
+
+  // Not started - show team selection
+  statusEl.innerHTML = '<p style="color:var(--text-muted);">選擇寵物派出遠征！</p>';
+
+  if (!member.pets || member.pets.length === 0) {
+    teamEl.innerHTML = '<p style="color:#999;">還沒有寵物可以去探險 🥺</p>';
+    return;
+  }
+
+  const lowAnim = getLowAnimMode();
+  teamEl.innerHTML = `
+    <div class="expedition-pick">
+      <p style="margin-bottom:10px;">點選寵物加入遠征隊伍（最多 3 隻）</p>
+      <div class="expedition-pets">${member.pets.map(p => `
+        <div class="expedition-pet-option" data-id="${p.instanceId}" onclick="toggleExpeditionPet(this)">
+          <img src="${getImageUrl(p.templateId)}" alt="${p.name}"
+               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🐾</text></svg>'">
+          <div class="expedition-pet-name">${p.name}</div>
+          <div class="expedition-pet-power">⚔️${p.power || 0}</div>
+        </div>
+      `).join('')}</div>
+      <button class="expedition-start-btn" onclick="startExpeditionUI()" disabled id="expeditionStartBtn">
+        🌍 出發！
+      </button>
+    </div>
+  `;
+}
+
+let selectedExpeditionPets = [];
+
+function toggleExpeditionPet(el) {
+  const id = el.dataset.id;
+  const idx = selectedExpeditionPets.indexOf(id);
+  if (idx >= 0) {
+    selectedExpeditionPets.splice(idx, 1);
+    el.classList.remove('selected');
+  } else {
+    if (selectedExpeditionPets.length >= 3) {
+      showToast('⚠️ 最多選擇 3 隻寵物');
+      return;
+    }
+    selectedExpeditionPets.push(id);
+    el.classList.add('selected');
+  }
+  const btn = document.getElementById('expeditionStartBtn');
+  if (btn) btn.disabled = selectedExpeditionPets.length === 0;
+}
+
+function startExpeditionUI() {
+  const member = getCurrentMember();
+  if (!member || selectedExpeditionPets.length === 0) return;
+
+  const result = startExpedition(member.id, selectedExpeditionPets);
+  if (result && result.error) {
+    showToast('❌ ' + result.error);
+    return;
+  }
+
+  selectedExpeditionPets = [];
+  showToast('🌍 寵物出發探險了！');
+  renderExpedition();
+}
+
+function claimExpedition() {
+  const member = getCurrentMember();
+  if (!member) return;
+
+  const result = claimExpeditionRewards(member.id);
+  if (result && result.error) {
+    showToast('❌ ' + result.error);
+    return;
+  }
+
+  const resultEl = document.getElementById('expeditionResult');
+  resultEl.classList.remove('hidden');
+  let bonusHtml = '';
+  if (result.hasBonus) {
+    bonusHtml = `<div class="expedition-bonus">🌟 稀有發現！額外 +${result.bonusReward}💰</div>`;
+  }
+  resultEl.innerHTML = `
+    <div class="expedition-reward-box">
+      <h3>🎊 探索完成！</h3>
+      <div class="expedition-coins">💰 +${result.coins} 金幣</div>
+      ${bonusHtml}
+      <button class="expedition-claim-btn" onclick="document.getElementById('expeditionResult').classList.add('hidden');renderExpedition();refreshUI();">
+        太好了！
+      </button>
+    </div>
+  `;
+  renderExpedition();
+  updateNavCoins();
+}
+
+// ====== 音效與動畫設定 ======
+function renderSettingsUI() {
+  const settings = getSettings();
+  const sfxEl = document.getElementById('settingSfx');
+  const bgmEl = document.getElementById('settingBgm');
+  const lowAnimEl = document.getElementById('settingLowAnim');
+  if (sfxEl) sfxEl.checked = settings.sfx;
+  if (bgmEl) bgmEl.checked = settings.bgm;
+  if (lowAnimEl) {
+    lowAnimEl.checked = getLowAnimMode();
+  }
+}
+
+function toggleSetting(key, value) {
+  if (key === 'lowAnim') {
+    setLowAnimMode(value);
+  } else {
+    const settings = getSettings();
+    settings[key] = value;
+    saveSettings(settings);
+  }
+  showToast(key === 'sfx' ? (value ? '🔊 音效已開啟' : '🔇 音效已關閉') :
+            key === 'bgm' ? (value ? '🎵 BGM 已開啟' : '🔇 BGM 已關閉') :
+            (value ? '🐢 低動畫模式已開啟' : '🐢 低動畫模式已關閉'));
 }
 
 // ====== 自動每日重置（頁面載入時檢查）=====

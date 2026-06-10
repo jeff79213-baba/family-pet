@@ -18,6 +18,8 @@
       <a data-page="gacha">🎰 扭蛋</a>
       <a data-page="pets">🐾 我的寵物</a>
       <a data-page="album">📖 圖鑑</a>
+      <a data-page="boss">⚔️ Boss 戰</a>
+      <a data-page="expedition">🌍 遠征</a>
       <a data-page="admin" id="adminNavLink" style="display:none">⚙️ 管理</a>
     </div>
   </nav>
@@ -113,6 +115,24 @@
       <div id="albumGrid" class="pet-grid"></div>
     </section>
 
+    <!-- Boss 戰 -->
+    <section id="page-boss" class="page">
+      <h2>⚔️ 頭目戰</h2>
+      <p>派出你最強的寵物挑戰頭目！</p>
+      <div id="bossCooldown" class="boss-cooldown" style="display:none"></div>
+      <div id="bossList" class="boss-list"></div>
+      <div id="bossBattleResult" class="boss-result hidden"></div>
+    </section>
+
+    <!-- 遠征探險 -->
+    <section id="page-expedition" class="page">
+      <h2>🌍 探索遠征</h2>
+      <p>派出寵物隊伍出去探險，等待驚喜獎勵！</p>
+      <div id="expeditionStatus"></div>
+      <div id="expeditionTeam" class="expedition-team"></div>
+      <div id="expeditionResult" class="expedition-result hidden"></div>
+    </section>
+
     <!-- 管理後台 -->
     <section id="page-admin" class="page">
       <div class="admin-header">
@@ -162,6 +182,24 @@
       </div>
 
       <div class="admin-section">
+        <h3>🔊 音效與動畫</h3>
+        <div class="settings-group">
+          <label class="settings-toggle">
+            <input type="checkbox" id="settingSfx" onchange="toggleSetting('sfx', this.checked)">
+            <span>🔊 系統音效</span>
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="settingBgm" onchange="toggleSetting('bgm', this.checked)">
+            <span>🎵 背景音樂 BGM</span>
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="settingLowAnim" onchange="toggleSetting('lowAnim', this.checked)">
+            <span>🐢 低動畫模式（減少特效）</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="admin-section">
         <h3>💾 資料備份</h3>
         <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
           匯出備份檔案，或從備份檔案還原所有資料
@@ -191,6 +229,50 @@
         <button onclick="verifyParentPassword()" class="modal-btn confirm">確認</button>
         <button onclick="closePasswordModal()" class="modal-btn cancel">取消</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ====== 寵物卡片 Modal ====== -->
+  <div id="petCardModal" class="modal-overlay hidden" onclick="closePetCard(event)">
+    <div class="pet-card-modal" id="petCardContent">
+      <div class="pet-card-sparkle" id="petCardSparkle"></div>
+      <div class="pet-card-header">
+        <span class="pet-card-name" id="petCardName"></span>
+        <span class="pet-card-type-badge" id="petCardTypeBadge"></span>
+      </div>
+      <div class="pet-card-stage-label" id="petCardStage"></div>
+      <div class="pet-card-image-wrap">
+        <img id="petCardImage" src="" alt="" class="pet-card-image">
+      </div>
+      <div class="pet-card-evolution" id="petCardEvolution"></div>
+      <div class="pet-card-info">
+        <div class="pet-card-info-row"><span>屬性</span><span id="petCardType"></span></div>
+        <div class="pet-card-info-row"><span>基礎戰力</span><span id="petCardPower"></span></div>
+        <div class="pet-card-info-row"><span>階段</span><span id="petCardStageInfo"></span></div>
+        <div class="pet-card-info-row"><span>獲得時間</span><span id="petCardDate"></span></div>
+      </div>
+      <button class="pet-card-close" onclick="closePetCard()">關閉</button>
+    </div>
+  </div>
+
+  <!-- ====== 進化動畫 Modal ====== -->
+  <div id="evoModal" class="modal-overlay hidden">
+    <div class="evo-modal-content" id="evoContent">
+      <div class="evo-sparkle-bg"></div>
+      <h2 class="evo-title">✨ 寵物進化成功！✨</h2>
+      <p class="evo-subtitle" id="evoSubtitle"></p>
+      <div class="evo-pets">
+        <div class="evo-pet-card" id="evoBefore">
+          <img id="evoBeforeImg" src="" alt="">
+          <div class="evo-pet-name" id="evoBeforeName"></div>
+        </div>
+        <div class="evo-arrow">➡️</div>
+        <div class="evo-pet-card" id="evoAfter">
+          <img id="evoAfterImg" src="" alt="">
+          <div class="evo-pet-name" id="evoAfterName"></div>
+        </div>
+      </div>
+      <button class="evo-btn" onclick="closeEvoModal()">🎉 太棒了！</button>
     </div>
   </div>
 

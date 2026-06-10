@@ -27,7 +27,9 @@ function createDefaultData() {
   return {
     currentMember: null,
     members: [],
-    tasks: []
+    tasks: [],
+    unlockedBosses: [1],
+    expeditionSlots: 3
   };
 }
 
@@ -100,6 +102,9 @@ function addMember(name, avatar) {
     todayTasks: {},
     isParent: false,
     lastBossAt: null,
+    expedition: null,
+    expeditionRewards: 0,
+    lowAnimMode: false,
     createdAt: new Date().toISOString()
   };
   data.members.push(member);
@@ -214,6 +219,23 @@ function addPetToMember(memberId, petTemplateId) {
   const template = window.PET_DATABASE.find(p => p.id === petTemplateId);
   if (!template) return null;
 
+  // 檢查是否已擁有該寵物 → 觸發進化
+  const existing = member.pets.find(p => p.templateId === template.id);
+  if (existing && template.nextEvoId && !template.isLegendary) {
+    const result = performEvolution(member, template);
+    if (result) {
+      saveData(data);
+      return { type: 'evolution', oldTemplate: result.oldTemplate, newTemplate: result.newTemplate, pet: result.pet };
+    }
+  }
+
+  // 重複寵物無法進化（已是終階或傳說），加戰力
+  if (existing) {
+    existing.power = (existing.power || 0) + 20;
+    saveData(data);
+    return { type: 'duplicate', pet: existing, powerUp: 20 };
+  }
+
   const pet = {
     templateId: template.id,
     instanceId: 'pet_' + template.id + '_' + Date.now(),
@@ -225,13 +247,44 @@ function addPetToMember(memberId, petTemplateId) {
     obtainedAt: new Date().toISOString()
   };
 
-  const existing = member.pets.find(p => p.templateId === template.id);
-  if (existing) {
-  }
-
   member.pets.push(pet);
   saveData(data);
-  return pet;
+  return { type: 'new', pet };
+}
+
+// ====== 進化系統 ======
+function performEvolution(member, template) {
+  const newTemplate = window.PET_DATABASE.find(p => p.id === template.nextEvoId);
+  if (!newTemplate) return null;
+
+  const oldPet = member.pets.find(p => p.templateId === template.id);
+  if (!oldPet) return null;
+
+  const oldTemplate = { ...template };
+  const newPower = newTemplate.stage === 2 ? 100 : (newTemplate.stage === 3 ? 300 : 0);
+
+  oldPet.templateId = newTemplate.id;
+  oldPet.name = newTemplate.name;
+  oldPet.type = newTemplate.type;
+  oldPet.stage = newTemplate.stage;
+  oldPet.power = newPower;
+  oldPet.isLegendary = newTemplate.isLegendary;
+
+  return { oldTemplate, newTemplate, pet: oldPet };
+}
+
+function getEvolutionChain(templateId) {
+  if (!window.PET_DATABASE) return null;
+  const chain = [];
+  let current = window.PET_DATABASE.find(p => p.id === templateId);
+  if (!current) return null;
+  while (current) {
+    chain.push(current);
+    if (!current.nextEvoId) break;
+    current = window.PET_DATABASE.find(p => p.id === current.nextEvoId);
+    if (!current) break;
+  }
+  return chain;
 }
 
 function getMemberPets(memberId) {
@@ -326,6 +379,184 @@ function getTypeColor(type) {
     '飛行': '#a890f0', '一般': '#a8a878', '蟲': '#a8b820'
   };
   return colors[type] || '#a8a878';
+}
+
+// ====== Boss 戰系統 ======
+const BOSSES = [
+  { id: 1, name: '暗影巨龍', type: '龍', hp: 500, reward: 50, emoji: '🐉', color: '#7038f8' },
+  { id: 2, name: '熔岩獸王', type: '火', hp: 400, reward: 40, emoji: '🔥', color: '#f08030' },
+  { id: 3, name: '深海巨妖', type: '水', hp: 450, reward: 45, emoji: '🐙', color: '#6890f0' },
+  { id: 4, name: '鋼鐵魔神', type: '鋼鐵', hp: 600, reward: 60, emoji: '🤖', color: '#b8b8d0' }
+];
+
+const BOSS_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+function getBosses() {
+  return BOSSES;
+}
+
+function getUnlockedBosses() {
+  const data = getData();
+  return (data.unlockedBosses || [1]).map(id => BOSSES.find(b => b.id === id)).filter(Boolean);
+}
+
+function canFightBoss(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return false;
+  if (!member.lastBossAt) return true;
+  return Date.now() - new Date(member.lastBossAt).getTime() >= BOSS_COOLDOWN_MS;
+}
+
+function getBossCooldownRemaining(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member || !member.lastBossAt) return 0;
+  const elapsed = Date.now() - new Date(member.lastBossAt).getTime();
+  return Math.max(0, BOSS_COOLDOWN_MS - elapsed);
+}
+
+const TYPE_ADVANTAGE = {
+  '火': ['草', '冰', '蟲', '鋼鐵'],
+  '水': ['火', '地面', '岩石'],
+  '草': ['水', '地面', '岩石'],
+  '電': ['水', '飛行'],
+  '毒': ['草', '妖精'],
+  '幽靈': ['幽靈', '超能力'],
+  '超能力': ['格鬥', '毒'],
+  '格鬥': ['一般', '冰', '岩石', '鋼鐵', '惡'],
+  '惡': ['幽靈', '超能力'],
+  '冰': ['草', '地面', '龍', '飛行'],
+  '龍': ['龍'],
+  '妖精': ['格鬥', '龍', '惡'],
+  '岩石': ['火', '冰', '飛行', '蟲'],
+  '地面': ['火', '電', '毒', '岩石', '鋼鐵'],
+  '鋼鐵': ['冰', '岩石', '妖精'],
+  '飛行': ['草', '格鬥', '蟲'],
+  '一般': []
+};
+
+function calcBattleDamage(attackerPower, attackerType, bossType) {
+  const isAdvantage = TYPE_ADVANTAGE[attackerType] && TYPE_ADVANTAGE[attackerType].includes(bossType);
+  const multiplier = isAdvantage ? 1.5 : 1.0;
+  const base = Math.max(10, (attackerPower || 0) + 50);
+  return { damage: Math.floor(base * multiplier), isAdvantage };
+}
+
+function fightBoss(memberId, bossId, petInstanceId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return null;
+  if (!canFightBoss(memberId)) return { error: '冷卻中' };
+
+  const boss = BOSSES.find(b => b.id === bossId);
+  if (!boss) return null;
+
+  const pet = member.pets.find(p => p.instanceId === petInstanceId);
+  if (!pet) return null;
+
+  const { damage, isAdvantage } = calcBattleDamage(pet.power || 0, pet.type, boss.type);
+  const win = damage >= boss.hp;
+
+  if (win) {
+    member.coins += boss.reward;
+    member.lastBossAt = new Date().toISOString();
+    member.expeditionRewards = (member.expeditionRewards || 0) + 1;
+    // Unlock next boss
+    const nextBossId = bossId + 1;
+    if (nextBossId <= BOSSES.length && !data.unlockedBosses.includes(nextBossId)) {
+      data.unlockedBosses.push(nextBossId);
+    }
+  }
+
+  saveData(data);
+  return { win, damage, boss, pet, isAdvantage, reward: win ? boss.reward : 0 };
+}
+
+// ====== 遠征探險系統 ======
+const EXPEDITION_DURATION_MS = 30 * 1000; // 30 seconds for now
+
+function startExpedition(memberId, petInstanceIds) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return null;
+  if (member.expedition) return { error: '已有進行中的遠征' };
+
+  const pets = petInstanceIds.map(id => member.pets.find(p => p.instanceId === id)).filter(Boolean);
+  if (pets.length === 0) return { error: '請選擇至少一隻寵物' };
+
+  member.expedition = {
+    petIds: petInstanceIds,
+    startedAt: new Date().toISOString(),
+    duration: EXPEDITION_DURATION_MS
+  };
+
+  saveData(data);
+  return { ok: true, pets };
+}
+
+function getExpeditionStatus(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member || !member.expedition) return null;
+
+  const elapsed = Date.now() - new Date(member.expedition.startedAt).getTime();
+  const progress = Math.min(100, (elapsed / member.expedition.duration) * 100);
+
+  if (progress >= 100) {
+    return { status: 'completed', progress: 100 };
+  }
+  return { status: 'ongoing', progress, remaining: member.expedition.duration - elapsed };
+}
+
+function claimExpeditionRewards(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member || !member.expedition) return null;
+
+  const elapsed = Date.now() - new Date(member.expedition.startedAt).getTime();
+  if (elapsed < member.expedition.duration) return { error: '遠征尚未完成' };
+
+  const petCount = member.expedition.petIds.length;
+  const baseReward = 15 + petCount * 5;
+  const hasBonus = Math.random() < 0.3;
+  const bonusReward = hasBonus ? 10 + Math.floor(Math.random() * 20) : 0;
+
+  member.coins += baseReward + bonusReward;
+  member.expedition = null;
+
+  saveData(data);
+  return { coins: baseReward + bonusReward, baseReward, bonusReward, hasBonus };
+}
+
+// ====== 設定系統 ======
+const SETTINGS_KEY = 'familyPet_settings';
+
+function getSettings() {
+  const raw = localStorage.getItem(SETTINGS_KEY);
+  if (raw) {
+    try { return JSON.parse(raw); }
+    catch(e) {}
+  }
+  return { sfx: true, bgm: false, lowAnim: false };
+}
+
+function saveSettings(settings) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function getLowAnimMode() {
+  const member = getCurrentMember();
+  return member ? (member.lowAnimMode || false) : false;
+}
+
+function setLowAnimMode(val) {
+  const data = getData();
+  const member = data.members.find(m => m.id === getCurrentMember()?.id);
+  if (member) {
+    member.lowAnimMode = !!val;
+    saveData(data);
+  }
 }
 
 function getDefaultMembers() {
