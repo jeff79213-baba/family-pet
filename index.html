@@ -1,0 +1,203 @@
+﻿<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏠 家庭寵物樂園</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ====== 導航列 ====== -->
+  <nav id="topNav">
+    <h1>🏠 家庭寵物樂園 <span id="navCurrentUser"></span> <span id="navCoins">💰 0</span></h1>
+    <div class="nav-links">
+      <a class="active" data-page="home">🏡 首頁</a>
+      <a data-page="tasks">📋 任務</a>
+      <a data-page="exam">📝 考試</a>
+      <a data-page="gacha">🎰 扭蛋</a>
+      <a data-page="pets">🐾 我的寵物</a>
+      <a data-page="album">📖 圖鑑</a>
+      <a data-page="admin" id="adminNavLink" style="display:none">⚙️ 管理</a>
+    </div>
+  </nav>
+
+  <!-- ====== 頁面容器 ====== -->
+  <main id="app">
+
+    <!-- 首頁 -->
+    <section id="page-home" class="page active">
+      <div class="member-selector" id="memberSelector"></div>
+      <h2>歡迎回來！</h2>
+      <p>完成任務、考好成績，賺金幣抽寵物！</p>
+      <div class="daily-progress">
+        <div class="progress-header">
+          <span>📅 今日進度</span>
+          <span id="progressLabel">0 / 50 💰</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="todayProgress" style="width:0%"></div>
+        </div>
+        <div class="progress-pulls">🎁 可以抽 <span id="statPulls">0</span> 次</div>
+        <div class="free-pull-badge" id="freePullBadge" style="display:none"></div>
+      </div>
+      <div class="home-stats">
+        <div class="stat-card">
+          <span class="stat-icon">💰</span>
+          <span class="stat-label">金幣</span>
+          <span class="stat-value" id="statCoins">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">🐾</span>
+          <span class="stat-label">寵物</span>
+          <span class="stat-value" id="statPets">0</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-icon">📖</span>
+          <span class="stat-label">圖鑑</span>
+          <span class="stat-value" id="statAlbum">0 / 126</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 任務頁 -->
+    <section id="page-tasks" class="page">
+      <h2>📋 今日任務</h2>
+      <p>完成任務可獲得金幣！</p>
+      <div id="taskList"></div>
+    </section>
+
+    <!-- 考試頁 -->
+    <section id="page-exam" class="page">
+      <h2>📝 考試獎勵</h2>
+      <p>考得好也有獎勵喔！</p>
+      <div class="exam-rules">
+        <div class="exam-rule">98 ~ 99 分 → 💰 +5</div>
+        <div class="exam-rule legend">100 分 → 💰 +5 + 🎫 免費一抽</div>
+      </div>
+      <div class="exam-form">
+        <input type="text" id="examSubject" placeholder="科目名稱（如：國語）" maxlength="20">
+        <input type="number" id="examScore" placeholder="分數（0~100）" min="0" max="100">
+        <button onclick="handleExamSubmit()" class="btn-exam">✅ 確認送出</button>
+      </div>
+      <div id="examResult" class="exam-result hidden"></div>
+      <h3 style="margin-top:22px;">📋 最近紀錄</h3>
+      <div id="examHistory"></div>
+    </section>
+
+    <!-- 扭蛋頁 -->
+    <section id="page-gacha" class="page">
+      <h2>🎰 寵物扭蛋</h2>
+      <p>一次 30 金幣，隨機獲得一隻寵物！</p>
+      <div id="freePullInfo" class="free-pull-badge" style="display:none"></div>
+      <div class="gacha-area">
+        <button id="gachaBtn" class="btn-gacha" onclick="pullGacha()">
+          <span>🎁</span>
+          <span>抽一次（30💰）</span>
+        </button>
+      </div>
+      <div id="gachaResult" class="gacha-result hidden"></div>
+    </section>
+
+    <!-- 我的寵物頁 -->
+    <section id="page-pets" class="page">
+      <h2>🐾 我的寵物</h2>
+      <p>你擁有的寵物夥伴們</p>
+      <div id="petList" class="pet-grid"></div>
+    </section>
+
+    <!-- 圖鑑頁 -->
+    <section id="page-album" class="page">
+      <h2>📖 寵物圖鑑</h2>
+      <p>收集進度：<span id="albumProgress">0</span> / 126</p>
+      <div id="albumGrid" class="pet-grid"></div>
+    </section>
+
+    <!-- 管理後台 -->
+    <section id="page-admin" class="page">
+      <div class="admin-header">
+        <h2>⚙️ 家長控制台</h2>
+        <span class="admin-badge">🔐 管理員模式</span>
+      </div>
+      <p>管理任務選項、成員與主題風格</p>
+
+      <div class="admin-section">
+        <h3>👥 成員管理</h3>
+        <div id="adminMemberList"></div>
+        <div class="admin-add-form">
+          <input type="text" id="adminMemberName" placeholder="新成員名稱" maxlength="10">
+          <div class="avatar-selector" id="adminAvatarSelector"></div>
+          <button onclick="adminAddMember()" class="admin-btn add">➕ 新增成員</button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <h3>📋 任務管理</h3>
+        <div id="adminTaskList"></div>
+        <div class="admin-add-form">
+          <input type="text" id="adminTaskName" placeholder="任務名稱（如：🧹 掃地）" maxlength="30">
+          <input type="number" id="adminTaskReward" placeholder="金幣" min="1" max="100" style="max-width:100px;">
+          <button onclick="adminAddTask()" class="admin-btn add">➕ 新增任務</button>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <h3>✅ 待審核任務</h3>
+        <div id="adminPendingTasks"></div>
+      </div>
+
+      <div class="admin-section">
+        <h3>🔑 更改家長密碼</h3>
+        <div class="admin-password-form">
+          <input type="password" id="adminNewPwd" placeholder="新密碼（4位以上）" maxlength="20">
+          <input type="password" id="adminConfirmPwd" placeholder="再次輸入新密碼" maxlength="20">
+          <button onclick="adminChangePassword()" class="admin-btn save">🔒 變更密碼</button>
+          <span id="adminPwdMsg" class="admin-pwd-msg"></span>
+        </div>
+      </div>
+
+      <div class="admin-section">
+        <h3>🎨 主題風格</h3>
+        <div class="theme-selector" id="themeSelector"></div>
+      </div>
+
+      <div class="admin-section">
+        <h3>💾 資料備份</h3>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
+          匯出備份檔案，或從備份檔案還原所有資料
+        </p>
+        <div class="backup-actions">
+          <button onclick="exportSaveData()" class="admin-btn backup-export">💾 匯出備份</button>
+          <button onclick="document.getElementById('backupFileInput').click()" class="admin-btn backup-import">📂 匯入備份</button>
+          <input type="file" id="backupFileInput" accept=".json" style="display:none" onchange="handleImportBackup(this)">
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:20px;">
+        <button onclick="exitAdminMode()" class="admin-btn exit">🔙 返回兒童模式</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ====== 密碼彈窗 ====== -->
+  <div id="passwordModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3>🔐 家長驗證</h3>
+      <p style="color:#666;font-size:0.9rem;margin-bottom:12px;">請輸入家長密碼以進入管理後台</p>
+      <div class="modal-error" id="modalError">❌ 密碼錯誤，請重試</div>
+      <input type="password" id="passwordInput" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')verifyParentPassword()">
+      <div class="modal-btns">
+        <button onclick="verifyParentPassword()" class="modal-btn confirm">確認</button>
+        <button onclick="closePasswordModal()" class="modal-btn cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 腳本 ====== -->
+  <script src="parent-config.js"></script>
+  <script src="assets/pet-database.min.js"></script>
+  <script src="game-data.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

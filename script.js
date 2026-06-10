@@ -1,0 +1,712 @@
+/* ====== 家庭寵物樂園 - UI 腳本 ====== */
+
+let isAdminMode = false;
+let selectedAdminAvatar = '👤';
+
+// ====== 頁面導航 ======
+document.querySelectorAll('.nav-links a').forEach(link => {
+  link.addEventListener('click', () => {
+    const page = link.dataset.page;
+    if (page === 'admin' && !isAdminMode) return;
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+    link.classList.add('active');
+    const pageId = 'page-' + page;
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+    refreshUI();
+  });
+});
+
+// ====== 刷新所有 UI ======
+function refreshUI() {
+  renderMemberSelector();
+  updateNavCoins();
+  if (isAdminMode) {
+    renderAdminTaskList();
+    renderAdminMemberList();
+    renderAdminAvatarSelector();
+    renderAdminPendingTasks();
+    renderThemeSelector();
+    document.getElementById('adminNavLink').style.display = 'inline-block';
+  } else {
+    document.getElementById('adminNavLink').style.display = 'none';
+  }
+  updateHomeStats();
+  renderTasks();
+  renderPetList();
+  renderAlbum();
+  renderExamHistory();
+  updateGachaUI();
+}
+
+function updateNavCoins() {
+  const member = getCurrentMember();
+  const coinsEl = document.getElementById('navCoins');
+  const userEl = document.getElementById('navCurrentUser');
+  if (member) {
+    coinsEl.textContent = '💰 ' + member.coins;
+    coinsEl.style.display = 'inline';
+    userEl.textContent = (member.avatar || '👤') + ' ' + member.name;
+    userEl.style.display = 'inline';
+  } else {
+    coinsEl.style.display = 'none';
+    userEl.style.display = 'none';
+  }
+}
+
+// ====== 成員選擇器（首頁）=====
+function renderMemberSelector() {
+  const container = document.getElementById('memberSelector');
+  const data = getData();
+  const current = getCurrentMember();
+
+  let html = '';
+
+  data.members.forEach(m => {
+    const active = current && m.id === current.id ? 'active' : '';
+    html += `
+      <div class="member-btn ${active}" onclick="switchMember('${m.id}')">
+        <span class="member-avatar">${m.avatar || '👤'}</span>
+        <span class="member-name">${m.name}</span>
+      </div>
+    `;
+  });
+
+  html += `
+    <div class="member-btn parent-btn" onclick="showParentLogin()">
+      <span class="member-avatar">🔐</span>
+      <span class="member-name">家長</span>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+function switchMember(id) {
+  selectMember(id);
+  refreshUI();
+}
+
+// ====== 家長驗證 ======
+function showParentLogin() {
+  document.getElementById('passwordInput').value = '';
+  document.getElementById('modalError').style.display = 'none';
+  document.getElementById('passwordModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('passwordInput').focus(), 100);
+}
+
+function closePasswordModal() {
+  document.getElementById('passwordModal').classList.add('hidden');
+}
+
+function verifyParentPassword() {
+  const input = document.getElementById('passwordInput').value;
+  if (input === getParentPassword()) {
+    closePasswordModal();
+    enterAdminMode();
+  } else {
+    document.getElementById('modalError').style.display = 'block';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('passwordInput').focus();
+  }
+}
+
+function adminChangePassword() {
+  const newPwd = document.getElementById('adminNewPwd').value;
+  const confirmPwd = document.getElementById('adminConfirmPwd').value;
+  const msgEl = document.getElementById('adminPwdMsg');
+  if (!newPwd || newPwd.length < 4) { msgEl.textContent = '❌ 密碼至少 4 位'; return; }
+  if (newPwd !== confirmPwd) { msgEl.textContent = '❌ 兩次密碼不一致'; return; }
+  setParentPassword(newPwd);
+  document.getElementById('adminNewPwd').value = '';
+  document.getElementById('adminConfirmPwd').value = '';
+  msgEl.textContent = '';
+  showToast('🔒 家長密碼已更新');
+}
+
+function enterAdminMode() {
+  isAdminMode = true;
+  document.getElementById('adminNavLink').style.display = 'inline-block';
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.querySelector('[data-page="admin"]').classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-admin').classList.add('active');
+  refreshUI();
+  showToast('🔐 已進入管理員模式');
+}
+
+// ====== 備份功能 ======
+function handleImportBackup(input) {
+  if (!input.files || input.files.length === 0) return;
+  if (!confirm('⚠️ 匯入備份將會覆蓋目前所有資料，確定要繼續嗎？')) {
+    input.value = '';
+    return;
+  }
+  importSaveData(input.files[0]);
+}
+
+// ====== 離開管理員模式 ======
+function exitAdminMode() {
+  isAdminMode = false;
+  document.getElementById('adminNavLink').style.display = 'none';
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  document.querySelector('[data-page="home"]').classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-home').classList.add('active');
+  refreshUI();
+  showToast('👋 已返回兒童模式');
+}
+
+// ====== 管理後台 - 任務列表 ======
+function renderAdminTaskList() {
+  const container = document.getElementById('adminTaskList');
+  const tasks = getTaskDefs();
+
+  if (tasks.length === 0) {
+    container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">目前沒有任務，請新增任務</p>';
+    return;
+  }
+
+  container.innerHTML = tasks.map(task => `
+    <div class="admin-task-item" id="adminTask_${task.id}">
+      <span class="admin-task-label">${task.label}</span>
+      <span class="admin-task-reward">💰 ${task.reward}</span>
+      <button onclick="adminEditTask('${task.id}')" class="admin-btn edit">✏️ 編輯</button>
+      <button onclick="adminDeleteTask('${task.id}')" class="admin-btn delete">🗑️ 刪除</button>
+    </div>
+  `).join('');
+}
+
+function adminEditTask(taskId) {
+  const tasks = getTaskDefs();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const div = document.getElementById('adminTask_' + taskId);
+  div.innerHTML = `
+    <input type="text" class="admin-task-input" id="editLabel_${taskId}" value="${task.label.replace(/"/g, '&quot;')}" placeholder="任務名稱">
+    <input type="number" class="admin-task-input" id="editReward_${taskId}" value="${task.reward}" min="1" max="100" style="max-width:80px;">
+    <button onclick="adminSaveTask('${taskId}')" class="admin-btn save">💾 儲存</button>
+    <button onclick="renderAdminTaskList()" class="admin-btn delete">取消</button>
+  `;
+}
+
+function adminSaveTask(taskId) {
+  const newLabel = document.getElementById('editLabel_' + taskId).value.trim();
+  const newReward = parseInt(document.getElementById('editReward_' + taskId).value);
+  if (!newLabel) { showToast('❌ 請輸入任務名稱'); return; }
+  if (isNaN(newReward) || newReward < 1) { showToast('❌ 請輸入有效的金幣數'); return; }
+  updateTaskDef(taskId, newLabel, newReward);
+  renderAdminTaskList();
+  showToast('✅ 任務已更新');
+}
+
+function adminDeleteTask(taskId) {
+  if (!confirm('確定要刪除這個任務嗎？\n（成員的任務狀態也會一併清除）')) return;
+  removeTaskDef(taskId);
+  renderAdminTaskList();
+  showToast('🗑️ 任務已刪除');
+}
+
+function adminAddTask() {
+  const nameInput = document.getElementById('adminTaskName');
+  const rewardInput = document.getElementById('adminTaskReward');
+  const label = nameInput.value.trim();
+  const reward = parseInt(rewardInput.value);
+
+  if (!label) { showToast('❌ 請輸入任務名稱'); return; }
+  if (isNaN(reward) || reward < 1) { showToast('❌ 請輸入有效的金幣數'); return; }
+
+  addTaskDef(label, reward);
+  nameInput.value = '';
+  rewardInput.value = '';
+  renderAdminTaskList();
+  showToast(`✅ 已新增任務：${label}（+${reward}💰）`);
+}
+
+// ====== 管理後台 - 成員管理 ======
+function renderAdminMemberList() {
+  const container = document.getElementById('adminMemberList');
+  const data = getData();
+
+  if (data.members.length === 0) {
+    container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">目前沒有成員</p>';
+    return;
+  }
+
+  container.innerHTML = data.members.map(m => `
+    <div class="admin-member-item">
+      <span class="admin-member-avatar">${m.avatar || '👤'}</span>
+      <span class="admin-member-name">${m.name}</span>
+      <button onclick="adminDeleteMember('${m.id}')" class="admin-btn delete">🗑️ 刪除</button>
+    </div>
+  `).join('');
+}
+
+function adminDeleteMember(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return;
+  if (!confirm(`確定要刪除「${member.name}」嗎？\n（金幣、寵物等資料都會清除）`)) return;
+  removeMember(memberId);
+  renderAdminMemberList();
+  showToast(`🗑️ 已刪除 ${member.name}`);
+}
+
+function renderAdminAvatarSelector() {
+  const container = document.getElementById('adminAvatarSelector');
+  if (!container) return;
+  const emojis = ['👦', '👧', '🧒', '👶', '🌟', '🦸', '🧑‍🦰', '👱', '🐱', '🐶', '🐰', '🦊', '🐼', '🐨'];
+  container.innerHTML = emojis.map(e => `
+    <span class="avatar-option ${selectedAdminAvatar === e ? 'active' : ''}"
+          onclick="selectedAdminAvatar='${e}';renderAdminAvatarSelector();">${e}</span>
+  `).join('');
+}
+
+function adminAddMember() {
+  const input = document.getElementById('adminMemberName');
+  const name = input.value.trim();
+  if (!name) { showToast('❌ 請輸入成員名稱'); return; }
+  addMember(name, selectedAdminAvatar);
+  input.value = '';
+  selectedAdminAvatar = '👤';
+  renderAdminMemberList();
+  renderAdminAvatarSelector();
+  showToast(`🎉 已新增成員：${name}`);
+}
+
+// ====== 管理後台 - 待審核任務 ======
+function renderAdminPendingTasks() {
+  const container = document.getElementById('adminPendingTasks');
+  const data = getData();
+  const tasks = getTaskDefs();
+  let hasPending = false;
+  let html = '';
+
+  data.members.forEach(m => {
+    const pendings = tasks.filter(t => m.todayTasks[t.id] === 'pending');
+    if (pendings.length === 0) return;
+    hasPending = true;
+    html += `<div class="admin-pending-member"><strong>${m.avatar || '👤'} ${m.name}</strong></div>`;
+    pendings.forEach(t => {
+      html += `
+        <div class="admin-pending-item">
+          <span class="admin-pending-label">${t.label}</span>
+          <span class="admin-pending-reward">💰 +${t.reward}</span>
+          <button onclick="adminApproveTask('${m.id}','${t.id}')" class="admin-btn save">✅ 確認</button>
+          <button onclick="adminRejectTask('${m.id}','${t.id}')" class="admin-btn delete">❌ 退回</button>
+        </div>
+      `;
+    });
+  });
+
+  if (!hasPending) {
+    html = '<p style="color:#999;text-align:center;padding:16px;">目前沒有待審核的任務 🎉</p>';
+  }
+  container.innerHTML = html;
+}
+
+function adminApproveTask(memberId, taskId) {
+  const ok = approveTask(memberId, taskId);
+  if (!ok) { showToast('❌ 審核失敗'); return; }
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  const tasks = getTaskDefs();
+  const task = tasks.find(t => t.id === taskId);
+  renderAdminPendingTasks();
+  renderAdminMemberList();
+  showToast(`✅ 已確認 ${member ? member.name : ''} 的「${task ? task.label : ''}」+${task ? task.reward : 0}💰`);
+}
+
+function adminRejectTask(memberId, taskId) {
+  const ok = rejectTask(memberId, taskId);
+  if (!ok) { showToast('❌ 退回失敗'); return; }
+  renderAdminPendingTasks();
+  showToast('↩️ 已退回，任務待重新提交');
+}
+
+// ====== 管理後台 - 主題選擇 ======
+function renderThemeSelector() {
+  const container = document.getElementById('themeSelector');
+  const current = getSavedTheme();
+  const themes = [
+    { id: '', label: '💖 粉萌樂園', cls: 'pink' },
+    { id: 'game', label: '🎮 電玩冒險', cls: 'game' },
+    { id: 'rainbow', label: '🌈 彩虹派對', cls: 'rainbow' },
+    { id: 'neutral', label: '🐚 中性簡約', cls: 'neutral' },
+    { id: 'macaron', label: '🍬 馬卡龍派對', cls: 'macaron' }
+  ];
+
+  container.innerHTML = themes.map(t => `
+    <button class="theme-btn theme-${t.cls} ${current === t.id ? 'active' : ''}"
+            onclick="switchTheme('${t.id}')">${t.label}</button>
+  `).join('');
+}
+
+function switchTheme(theme) {
+  saveTheme(theme);
+  document.body.className = theme ? 'theme-' + theme : '';
+  renderThemeSelector();
+  const msgs = { '': '💖 已切換為粉萌樂園', game: '🎮 已切換為電玩冒險', rainbow: '🌈 已切換為彩虹派對', neutral: '🐚 已切換為中性簡約', macaron: '🍬 已切換為馬卡龍派對' };
+  showToast(msgs[theme] || '已切換主題');
+}
+
+// ====== 初始化 / 成員選擇 ======
+function initGame() {
+  let data = getData();
+
+  if (data.members.length === 0) {
+    const defaults = getDefaultMembers();
+    defaults.forEach(d => {
+      const id = 'member_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      data.members.push({
+        id,
+        name: d.name,
+        avatar: d.avatar,
+        coins: 30,
+        freePulls: 0,
+        exams: [],
+        todayEarned: 0,
+        pets: [],
+        todayTasks: {},
+        lastBossAt: null,
+        createdAt: new Date().toISOString()
+      });
+    });
+    data.currentMember = data.members[0].id;
+    saveData(data);
+  }
+
+  const today = new Date().toDateString();
+  const lastReset = localStorage.getItem('familyPet_lastReset');
+  if (lastReset !== today) {
+    resetDailyTasks();
+    localStorage.setItem('familyPet_lastReset', today);
+  }
+
+  const savedTheme = getSavedTheme();
+  document.body.className = savedTheme ? 'theme-' + savedTheme : '';
+
+  refreshUI();
+}
+
+// ====== 首頁統計 ======
+function getTotalDailyPossible() {
+  const tasks = getTaskDefs();
+  let total = 0;
+  tasks.forEach(t => total += t.reward);
+  return total || 50;
+}
+
+function updateHomeStats() {
+  const member = getCurrentMember();
+  if (!member) return;
+  document.getElementById('statCoins').textContent = member.coins;
+  document.getElementById('statPets').textContent = member.pets.length;
+  const collected = new Set(member.pets.map(p => p.templateId)).size;
+  document.getElementById('statAlbum').textContent = collected + ' / 126';
+
+  const todayEarned = getTodayEarned(member.id);
+  const totalPossible = getTotalDailyPossible();
+  const progressBar = document.getElementById('todayProgress');
+  const progressLabel = document.getElementById('progressLabel');
+  if (progressBar) {
+    const pct = Math.min(100, (todayEarned / totalPossible) * 100);
+    progressBar.style.width = pct + '%';
+  }
+  if (progressLabel) {
+    progressLabel.textContent = `${todayEarned} / ${totalPossible} 💰`;
+  }
+
+  const pullsEl = document.getElementById('statPulls');
+  if (pullsEl) {
+    const coinPulls = Math.floor(member.coins / GACHA_COST);
+    const freePulls = member.freePulls || 0;
+    pullsEl.textContent = coinPulls + freePulls;
+  }
+
+  const badge = document.getElementById('freePullBadge');
+  if (badge) {
+    const count = member.freePulls || 0;
+    badge.textContent = `🎫 免費抽 x ${count}`;
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+}
+
+// ====== 任務清單（可切換）=====
+function renderTasks() {
+  const container = document.getElementById('taskList');
+  const member = getCurrentMember();
+  if (!member) { container.innerHTML = '<p>請先選擇家庭成員</p>'; return; }
+
+  const todayEarned = getTodayEarned(member.id);
+  const tasks = getTaskDefs();
+  let totalPossible = 0;
+  tasks.forEach(t => totalPossible += t.reward);
+
+  const progressPct = totalPossible > 0 ? Math.min(100, (todayEarned / totalPossible) * 100) : 0;
+
+  let html = `
+    <div class="task-progress">
+      <div class="task-progress-label">📅 今日已賺：<strong>${todayEarned}</strong> 💰</div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" style="width:${progressPct}%"></div>
+      </div>
+    </div>
+  `;
+
+  html += tasks.map(task => {
+    const state = member.todayTasks[task.id];
+    let btnClass, btnText, disabled;
+    if (state === 'approved' || state === true) {
+      btnClass = 'done';
+      btnText = '✅ 已完成';
+      disabled = true;
+    } else if (state === 'pending') {
+      btnClass = 'pending-review';
+      btnText = '⏳ 待審核';
+      disabled = false;
+    } else {
+      btnClass = 'pending';
+      btnText = '⏳ 未完成';
+      disabled = false;
+    }
+    return `
+      <div class="task-item">
+        <div class="task-info">
+          <h4>${task.label}</h4>
+          <span class="task-reward">💰 +${task.reward}</span>
+        </div>
+        <button class="task-btn ${btnClass}" onclick="handleTask('${task.id}')" ${disabled ? 'disabled' : ''}>
+          ${btnText}
+        </button>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+function handleTask(taskId) {
+  const member = getCurrentMember();
+  if (!member) return;
+  const tasks = getTaskDefs();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+
+  const state = member.todayTasks[taskId];
+  if (state === 'approved' || state === true) return;
+  if (state === 'pending') {
+    cancelTask(member.id, taskId);
+    showToast(`↩️ ${task.label} 已取消提交`);
+  } else {
+    submitTask(member.id, taskId);
+    showToast(`📨 ${task.label} 已送出，等待家長確認`);
+  }
+  refreshUI();
+}
+
+// ====== 扭蛋系統 ======
+function pullGacha() {
+  const member = getCurrentMember();
+  if (!member || !window.PET_DATABASE) return;
+
+  let usedFreePull = false;
+  if (member.freePulls > 0) {
+    useFreePull(member.id);
+    usedFreePull = true;
+  } else if (member.coins < GACHA_COST) {
+    alert('💰 金幣不夠！趕快去完成任務賺金幣吧！');
+    return;
+  } else {
+    spendCoins(member.id, GACHA_COST);
+  }
+
+  const allPets = window.PET_DATABASE;
+  const roll = Math.random();
+  let pool;
+  if (roll < 0.9) {
+    pool = allPets.filter(p => !p.isLegendary && p.stage === 1);
+  } else if (roll < 0.98) {
+    pool = allPets.filter(p => p.isLegendary === false && p.stage === 1);
+  } else {
+    pool = allPets.filter(p => p.isLegendary === true);
+  }
+
+  if (!pool.length) pool = allPets.filter(p => !p.isLegendary && p.stage === 1);
+  const chosen = pool[Math.floor(Math.random() * pool.length)];
+
+  addPetToMember(member.id, chosen.id);
+
+  const resultDiv = document.getElementById('gachaResult');
+  resultDiv.classList.remove('hidden');
+  resultDiv.className = 'gacha-result spinning';
+  resultDiv.innerHTML = `
+    <div class="gacha-spinning">
+      <div class="spinner"></div>
+      <p>🎰 扭蛋轉動中...</p>
+    </div>
+  `;
+
+  setTimeout(() => {
+    resultDiv.className = 'gacha-result ' + (chosen.isLegendary ? 'legendary-reveal' : '');
+    resultDiv.innerHTML = `
+      <h3>🎉 獲得 ${chosen.name}！</h3>
+      <span style="display:inline-block;padding:4px 12px;border-radius:12px;background:${getTypeColor(chosen.type)};color:white;font-size:0.8rem;margin:8px 0;">
+        ${chosen.type}
+      </span>
+      <p>${chosen.isLegendary ? '🌟 傳說寵物！' : '階段 ' + chosen.stage}</p>
+      ${usedFreePull ? '<p style="color:#f59e0b;font-weight:bold;">🎫 使用免費抽獎券</p>' : ''}
+      <img src="${getImageUrl(chosen.id)}" alt="${chosen.name}"
+           onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${chosen.emoji||'🐾'}</text></svg>'">
+    `;
+    refreshUI();
+  }, 1200);
+}
+
+// ====== 寵物列表 ======
+function renderPetList() {
+  const container = document.getElementById('petList');
+  const member = getCurrentMember();
+  if (!member) { container.innerHTML = '<p>還沒有寵物，去抽扭蛋吧！</p>'; return; }
+
+  if (member.pets.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:#999;padding:40px;">還沒有寵物 🥺<br>去扭蛋頁面抽一隻吧！</p>';
+    return;
+  }
+
+  container.innerHTML = member.pets.map(pet => `
+    <div class="pet-card ${pet.isLegendary ? 'legendary' : ''}">
+      <img src="${getImageUrl(pet.templateId)}"
+           alt="${pet.name}"
+           onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🐾</text></svg>'">
+      <div class="pet-name">${pet.name}</div>
+      <span style="display:inline-block;padding:2px 8px;border-radius:8px;background:${getTypeColor(pet.type)};color:white;font-size:0.7rem;">
+        ${pet.type}
+      </span>
+      <div class="pet-stage">${pet.isLegendary ? '🌟 傳說' : '階段 ' + pet.stage}</div>
+    </div>
+  `).join('');
+}
+
+// ====== 圖鑑 ======
+function renderAlbum() {
+  const container = document.getElementById('albumGrid');
+  const member = getCurrentMember();
+  if (!member || !window.PET_DATABASE) return;
+
+  const collectedIds = new Set(member.pets.map(p => p.templateId));
+
+  container.innerHTML = window.PET_DATABASE.map(pet => {
+    const has = collectedIds.has(pet.id);
+    return `
+      <div class="pet-card ${has ? '' : 'unknown'}">
+        <img src="${has ? getImageUrl(pet.id) : ''}"
+             alt="${pet.name}"
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${has ? (pet.emoji||'🐾') : '❓'}</text></svg>'">
+        <div class="pet-name">${has ? pet.name : '???'}</div>
+        ${has ? `<span style="display:inline-block;padding:2px 8px;border-radius:8px;background:${getTypeColor(pet.type)};color:white;font-size:0.7rem;">${pet.type}</span>` : ''}
+        <div class="pet-stage">${pet.isLegendary ? '🌟 傳說' : '階 ' + pet.stage}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('albumProgress').textContent = collectedIds.size;
+}
+
+// ====== 考試系統 ======
+function handleExamSubmit() {
+  const member = getCurrentMember();
+  if (!member) return;
+
+  const subject = document.getElementById('examSubject').value.trim();
+  const score = parseInt(document.getElementById('examScore').value);
+
+  if (!subject) { alert('請輸入科目名稱'); return; }
+  if (isNaN(score) || score < 0 || score > 100) { alert('請輸入 0~100 的分數'); return; }
+
+  const result = addExam(member.id, subject, score);
+  if (!result || (result.coinsEarned === 0 && result.freePullEarned === 0)) {
+    alert('❌ 考 98 分以上才有獎勵喔，繼續加油！');
+  } else {
+    let msg = `🎉 ${subject} ${score} 分！`;
+    if (result.coinsEarned > 0) msg += ` +${result.coinsEarned}💰`;
+    if (result.freePullEarned > 0) msg += ` 🎫 免費一抽！`;
+    showToast(msg);
+
+    const resultDiv = document.getElementById('examResult');
+    resultDiv.classList.remove('hidden');
+    resultDiv.innerHTML = `<div class="exam-reward">${msg}</div>`;
+  }
+
+  document.getElementById('examSubject').value = '';
+  document.getElementById('examScore').value = '';
+  refreshUI();
+}
+
+function renderExamHistory() {
+  const member = getCurrentMember();
+  const container = document.getElementById('examHistory');
+  if (!member || !container) return;
+
+  if (!member.exams || member.exams.length === 0) {
+    container.innerHTML = '<p style="color:#999;text-align:center;padding:20px;">還沒有考試紀錄</p>';
+    return;
+  }
+
+  container.innerHTML = [...member.exams].reverse().slice(0, 30).map(record => {
+    const date = new Date(record.date).toLocaleDateString('zh-TW');
+    let reward = '';
+    if (record.coinsEarned > 0) reward += `+${record.coinsEarned}💰`;
+    if (record.freePullEarned > 0) reward += ` 🎫`;
+    return `<div class="exam-record">
+      <span class="exam-date">${date}</span>
+      <strong class="exam-subject">${record.subject}</strong>
+      <span class="exam-score ${record.score >= 100 ? 'perfect' : record.score >= 98 ? 'great' : ''}">${record.score} 分</span>
+      ${reward ? `<span class="exam-reward-badge">${reward}</span>` : '<span class="exam-no-reward">-</span>'}
+    </div>`;
+  }).join('');
+}
+
+// ====== 扭蛋 UI 更新 ======
+function updateGachaUI() {
+  const member = getCurrentMember();
+  const btn = document.getElementById('gachaBtn');
+  const freeInfo = document.getElementById('freePullInfo');
+  if (!btn || !member) return;
+
+  const freePulls = member.freePulls || 0;
+  if (freePulls > 0) {
+    btn.innerHTML = `<span>🎁</span><span>🎫 免費抽一次</span>`;
+    if (freeInfo) {
+      freeInfo.style.display = 'inline-block';
+      freeInfo.textContent = `🎫 還有 ${freePulls} 張免費抽獎券 🎉`;
+    }
+  } else {
+    btn.innerHTML = `<span>🎁</span><span>抽一次（30💰）</span>`;
+    if (freeInfo) freeInfo.style.display = 'none';
+  }
+}
+
+// ====== Toast 通知 ======
+function showToast(message) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.classList.add('show');
+  });
+
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+
+// ====== 自動每日重置（頁面載入時檢查）=====
+document.addEventListener('DOMContentLoaded', initGame);
