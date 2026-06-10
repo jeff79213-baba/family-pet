@@ -514,12 +514,49 @@ function fightBoss(memberId, bossId, petInstanceId) {
 
 // ====== 遠征探險系統 ======
 const EXPEDITION_DURATION_MS = 30 * 1000; // 30 seconds for now
+const EXPEDITION_REQUIRED_TASKS = 4;
+
+function getCompletedTaskCount(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return 0;
+  const tasks = getTaskDefs();
+  return tasks.filter(t => member.todayTasks[t.id] === 'approved' || member.todayTasks[t.id] === true).length;
+}
+
+function canStartExpedition(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return { ok: false, reason: '找不到成員' };
+  if (member.expedition) return { ok: false, reason: '已有進行中的遠征' };
+  const today = new Date().toDateString();
+  if (member.lastExpeditionDate === today) return { ok: false, reason: '今天已經遠征過了，明天再來！' };
+  const done = getCompletedTaskCount(memberId);
+  if (done < EXPEDITION_REQUIRED_TASKS) return { ok: false, reason: `今日須完成 ${EXPEDITION_REQUIRED_TASKS} 項任務才能遠征（目前 ${done} 項）` };
+  return { ok: true };
+}
+
+function getExpeditionRewardInfo() {
+  return {
+    basePerPet: 5,
+    baseFixed: 15,
+    bonusChance: 0.3,
+    bonusMin: 10,
+    bonusMax: 29,
+    examples: [
+      { pets: 1, total: 20 },
+      { pets: 2, total: 25 },
+      { pets: 3, total: 30 }
+    ]
+  };
+}
 
 function startExpedition(memberId, petInstanceIds) {
   const data = getData();
   const member = data.members.find(m => m.id === memberId);
   if (!member) return null;
-  if (member.expedition) return { error: '已有進行中的遠征' };
+  const check = canStartExpedition(memberId);
+  if (!check.ok) return { error: check.reason };
 
   const pets = petInstanceIds.map(id => member.pets.find(p => p.instanceId === id)).filter(Boolean);
   if (pets.length === 0) return { error: '請選擇至少一隻寵物' };
@@ -529,6 +566,7 @@ function startExpedition(memberId, petInstanceIds) {
     startedAt: new Date().toISOString(),
     duration: EXPEDITION_DURATION_MS
   };
+  member.lastExpeditionDate = new Date().toDateString();
 
   saveData(data);
   return { ok: true, pets };
@@ -569,21 +607,6 @@ function claimExpeditionRewards(memberId) {
 }
 
 // ====== 設定系統 ======
-const SETTINGS_KEY = 'familyPet_settings';
-
-function getSettings() {
-  const raw = localStorage.getItem(SETTINGS_KEY);
-  if (raw) {
-    try { return JSON.parse(raw); }
-    catch(e) {}
-  }
-  return { sfx: true, bgm: false, lowAnim: false };
-}
-
-function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-}
-
 function getLowAnimMode() {
   const member = getCurrentMember();
   return member ? (member.lowAnimMode || false) : false;

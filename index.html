@@ -182,18 +182,10 @@
       </div>
 
       <div class="admin-section">
-        <h3>🔊 音效與動畫</h3>
+        <h3>🐢 動畫設定</h3>
         <div class="settings-group">
           <label class="settings-toggle">
-            <input type="checkbox" id="settingSfx" onchange="toggleSetting('sfx', this.checked)">
-            <span>🔊 系統音效</span>
-          </label>
-          <label class="settings-toggle">
-            <input type="checkbox" id="settingBgm" onchange="toggleSetting('bgm', this.checked)">
-            <span>🎵 背景音樂 BGM</span>
-          </label>
-          <label class="settings-toggle">
-            <input type="checkbox" id="settingLowAnim" onchange="toggleSetting('lowAnim', this.checked)">
+            <input type="checkbox" id="settingLowAnim" onchange="toggleLowAnim(this.checked)">
             <span>🐢 低動畫模式（減少特效）</span>
           </label>
         </div>
@@ -306,6 +298,14 @@
   <div id="evoModal" class="modal-overlay hidden">
     <div class="evo-modal-content" id="evoContent">
       <div class="evo-sparkle-bg"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
+      <div class="evo-particle"></div>
       <h2 class="evo-title">✨ 寵物進化成功！✨</h2>
       <p class="evo-subtitle" id="evoSubtitle"></p>
       <div class="evo-pets">

@@ -574,6 +574,7 @@ function initGame() {
         password: '',
         expedition: null,
         expeditionRewards: 0,
+        lastExpeditionDate: null,
         lowAnimMode: false,
         createdAt: new Date().toISOString()
       });
@@ -591,6 +592,7 @@ function initGame() {
 
   const savedTheme = getSavedTheme();
   document.body.className = savedTheme ? 'theme-' + savedTheme : '';
+  if (getLowAnimMode()) document.body.classList.add('low-anim');
 
   refreshUI();
 }
@@ -758,48 +760,60 @@ function pullGacha() {
 
   const resultDiv = document.getElementById('gachaResult');
   resultDiv.classList.remove('hidden');
-  resultDiv.className = 'gacha-result spinning';
+  resultDiv.className = 'gacha-result';
   resultDiv.innerHTML = `
-    <div class="gacha-spinning">
-      <div class="spinner"></div>
-      <p>🎰 扭蛋轉動中...</p>
+    <div class="gacha-capsule-phase">
+      <div class="gacha-capsule ${chosen.isLegendary ? 'legendary' : ''}">🎁</div>
+      <div class="gacha-capsule-label">🎰 扭蛋轉動中...</div>
     </div>
   `;
 
   setTimeout(() => {
-    if (result.type === 'evolution') {
-      resultDiv.className = 'gacha-result';
-      resultDiv.innerHTML = `
-        <h3>🎉 重複寵物！觸發進化！</h3>
-        <p style="color:var(--success);font-weight:bold;margin:12px 0;">
-          ${result.oldTemplate.name} → ${result.newTemplate.name}
-        </p>
-        <p>${usedFreePull ? '🎫 使用免費抽獎券' : '💰 花費 30 金幣'}</p>
-      `;
-      refreshUI();
-      setTimeout(() => showEvoModal(result.oldTemplate, result.newTemplate), 600);
-    } else if (result.type === 'duplicate') {
-      resultDiv.className = 'gacha-result';
-      resultDiv.innerHTML = `
-        <h3>🔄 重複寵物！戰力提升！</h3>
-        <p>${chosen.name} 戰力 +20（當前 ${result.pet.power}）</p>
-        <p>${usedFreePull ? '🎫 使用免費抽獎券' : '💰 花費 30 金幣'}</p>
-      `;
-      refreshUI();
-    } else {
-      resultDiv.className = 'gacha-result ' + (chosen.isLegendary ? 'legendary-reveal' : '');
-      resultDiv.innerHTML = `
-        <h3>🎉 獲得 ${chosen.name}！</h3>
-        <span style="display:inline-block;padding:4px 12px;border-radius:12px;background:${getTypeColor(chosen.type)};color:white;font-size:0.8rem;margin:8px 0;">
-          ${chosen.type}
-        </span>
-        <p>${chosen.isLegendary ? '🌟 傳說寵物！' : '階段 ' + chosen.stage}</p>
-        ${usedFreePull ? '<p style="color:#f59e0b;font-weight:bold;">🎫 使用免費抽獎券</p>' : ''}
-        <img src="${getImageUrl(chosen.id)}" alt="${chosen.name}"
-             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${chosen.emoji||'🐾'}</text></svg>'">
-      `;
-      refreshUI();
-    }
+    const capsule = resultDiv.querySelector('.gacha-capsule');
+    if (capsule) capsule.classList.add('open');
+
+    setTimeout(() => {
+      if (result.type === 'evolution') {
+        resultDiv.className = 'gacha-result';
+        resultDiv.innerHTML = `
+          <div class="gacha-card-reveal">
+            <h3>🎉 重複寵物！觸發進化！</h3>
+            <p style="color:var(--success);font-weight:bold;margin:12px 0;">
+              ${result.oldTemplate.name} → ${result.newTemplate.name}
+            </p>
+            <p>${usedFreePull ? '🎫 使用免費抽獎券' : '💰 花費 30 金幣'}</p>
+          </div>
+        `;
+        refreshUI();
+        setTimeout(() => showEvoModal(result.oldTemplate, result.newTemplate), 600);
+      } else if (result.type === 'duplicate') {
+        resultDiv.className = 'gacha-result';
+        resultDiv.innerHTML = `
+          <div class="gacha-card-reveal">
+            <h3>🔄 重複寵物！戰力提升！</h3>
+            <p>${chosen.name} 戰力 +20（當前 ${result.pet.power}）</p>
+            <p>${usedFreePull ? '🎫 使用免費抽獎券' : '💰 花費 30 金幣'}</p>
+          </div>
+        `;
+        refreshUI();
+      } else {
+        resultDiv.className = 'gacha-result ' + (chosen.isLegendary ? 'legendary-reveal' : '');
+        resultDiv.innerHTML = `
+          ${chosen.isLegendary ? '<div class="gacha-sparkle-burst"></div>' : ''}
+          <div class="gacha-card-reveal">
+            <h3>🎉 獲得 ${chosen.name}！</h3>
+            <span style="display:inline-block;padding:4px 12px;border-radius:12px;background:${getTypeColor(chosen.type)};color:white;font-size:0.8rem;margin:8px 0;">
+              ${chosen.type}
+            </span>
+            <p>${chosen.isLegendary ? '🌟 傳說寵物！' : '階段 ' + chosen.stage}</p>
+            ${usedFreePull ? '<p style="color:#f59e0b;font-weight:bold;">🎫 使用免費抽獎券</p>' : ''}
+            <img src="${getImageUrl(chosen.id)}" alt="${chosen.name}"
+                 onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>${chosen.emoji||'🐾'}</text></svg>'">
+          </div>
+        `;
+        refreshUI();
+      }
+    }, 700);
   }, 1200);
 }
 
@@ -1082,54 +1096,132 @@ function startBossFight(bossId, petInstanceId) {
   const member = getCurrentMember();
   if (!member) return;
 
+  const pet = member.pets.find(p => p.instanceId === petInstanceId);
+  const boss = BOSSES.find(b => b.id === bossId);
+  if (!pet || !boss) return;
+
+  // 計算寵物攻擊
+  const petAttack = calcBattleDamage(pet.power || 0, pet.type, boss.type);
+  // 計算 Boss 反擊（以血量/8 作為 Boss 的攻擊力）
+  const bossPower = Math.max(10, Math.floor(boss.hp / 8));
+  const bossAttack = calcBattleDamage(bossPower, boss.type, pet.type);
+
   const resultEl = document.getElementById('bossBattleResult');
   resultEl.classList.remove('hidden');
+  resultEl.className = 'boss-result';
 
-  // Spinning animation
   resultEl.innerHTML = `
-    <div class="battle-animation">
-      <div class="battle-fighter">
-        <div class="battle-pet-emoji">🐾</div>
-        <div class="battle-vs">⚔️</div>
-        <div class="battle-boss-emoji" id="bossEmoji">🐉</div>
+    <div class="battle-scene">
+      <div class="battle-arena">
+        <div class="battle-combatant battle-pet-side">
+          <img src="${getImageUrl(pet.templateId)}" alt="${pet.name}" class="battle-pet-img"
+               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🐾</text></svg>'">
+          <div class="battle-combatant-name">${pet.name}</div>
+        </div>
+        <div class="battle-vs-area">⚔️</div>
+        <div class="battle-combatant battle-boss-side">
+          <div class="boss-emoji-large">${boss.emoji}</div>
+          <div class="battle-combatant-name">${boss.name}</div>
+        </div>
       </div>
-      <div class="spinner"></div>
-      <p style="margin-top:12px;font-weight:bold;">⚔️ 戰鬥中...</p>
+      <div class="battle-projectiles" id="battleProjectiles"></div>
+      <div class="battle-damage-overlay" id="battleDamageDisplay"></div>
+      <p class="battle-fight-label" id="battleFightLabel">⚔️ ${pet.name} 發動攻擊！</p>
     </div>
   `;
 
+  // === Phase 1：寵物攻擊 Boss ===
+  setTimeout(() => {
+    const el = document.getElementById('battleProjectiles');
+    if (!el) return;
+    for (let i = 0; i < 3; i++) {
+      const p = document.createElement('div');
+      p.className = 'battle-projectile pet-attack';
+      p.style.setProperty('--i', i);
+      p.style.background = getTypeColor(pet.type);
+      el.appendChild(p);
+    }
+  }, 200);
+
+  // 顯示寵物傷害 + Boss 命中特效
+  setTimeout(() => {
+    const dmgEl = document.getElementById('battleDamageDisplay');
+    if (dmgEl) dmgEl.innerHTML = `
+      <div class="battle-hit-flash pet-hit"></div>
+      <div class="battle-damage-pop pet-damage">-${petAttack.damage}</div>
+    `;
+    const label = document.getElementById('battleFightLabel');
+    if (label) label.innerHTML = `${petAttack.isAdvantage ? '✨ 屬性相剋！' : '一般攻擊'} ${pet.name} 造成 <strong>${petAttack.damage}</strong> 傷害！`;
+  }, 1200);
+
+  // === Phase 2：Boss 反擊 ===
+  setTimeout(() => {
+    const el = document.getElementById('battleProjectiles');
+    if (el) {
+      el.innerHTML = '';
+      for (let i = 0; i < 3; i++) {
+        const p = document.createElement('div');
+        p.className = 'battle-projectile boss-attack';
+        p.style.setProperty('--i', i);
+        p.style.background = boss.color;
+        el.appendChild(p);
+      }
+    }
+    const label = document.getElementById('battleFightLabel');
+    if (label) label.textContent = `⚔️ ${boss.name} 反擊！`;
+  }, 1700);
+
+  // 顯示 Boss 傷害 + 寵物命中特效
+  setTimeout(() => {
+    const dmgEl = document.getElementById('battleDamageDisplay');
+    if (dmgEl) dmgEl.innerHTML += `
+      <div class="battle-hit-flash boss-hit"></div>
+      <div class="battle-damage-pop boss-damage">-${bossAttack.damage}</div>
+    `;
+    const label = document.getElementById('battleFightLabel');
+    if (label) label.innerHTML = `${bossAttack.isAdvantage ? '✨ 屬性相剋！' : ''} ${boss.name} 造成 <strong>${bossAttack.damage}</strong> 傷害！`;
+  }, 2700);
+
+  // === Phase 3：結算 ===
   setTimeout(() => {
     const result = fightBoss(member.id, bossId, petInstanceId);
     if (!result || result.error) {
-      resultEl.innerHTML = `<p style="color:var(--accent-red);">❌ ${result?.error || '戰鬥失敗'}</p>`;
+      resultEl.innerHTML = `<p style="color:var(--accent-red);padding:30px;text-align:center;">❌ ${result?.error || '戰鬥失敗'}</p>`;
       return;
     }
 
-    const advLabel = result.isAdvantage ? '✨ 屬性相剋' : '一般攻擊';
-    if (result.win) {
-      resultEl.innerHTML = `
-        <div class="battle-win">
-          <h3>🎉 勝利！</h3>
-          <div class="battle-damage">${result.damage} 傷害</div>
-          <div class="battle-tag">${advLabel}</div>
-          <div class="battle-reward">💰 +${result.reward} 金幣</div>
-          <button class="boss-fight-btn" onclick="document.getElementById('bossBattleResult').classList.add('hidden');renderBossPage();">確認</button>
+    // 二連擊總傷害顯示
+    const totalPetDmg = petAttack.damage;
+    const totalBossDmg = bossAttack.damage;
+    const resultHtml = result.win ? `
+      <div class="battle-result-box battle-win-box">
+        <div class="battle-hit-burst"></div>
+        <h3>🎉 勝利！</h3>
+        <div class="battle-exchange">
+          <span>⚔️ ${totalPetDmg} 👉</span>
+          <span>👈 ${totalBossDmg} ⚔️</span>
         </div>
-      `;
-    } else {
-      resultEl.innerHTML = `
-        <div class="battle-lose">
-          <h3>💪 ${result.damage} 傷害！還差一點！</h3>
-          <div class="battle-tag">${advLabel}</div>
-          <p style="color:var(--text-muted);">繼續培養寵物再來挑戰！</p>
-          <button class="boss-fight-btn" onclick="document.getElementById('bossBattleResult').classList.add('hidden');renderBossPage();">確認</button>
+        <div class="battle-tag">${petAttack.isAdvantage ? '✨ 屬性相剋' : '一般攻擊'}</div>
+        <div class="battle-reward">💰 +${result.reward} 金幣</div>
+      </div>
+    ` : `
+      <div class="battle-result-box battle-lose-box">
+        <h3>💪 還差一點！</h3>
+        <div class="battle-exchange">
+          <span>⚔️ ${totalPetDmg} 👉</span>
+          <span>👈 ${totalBossDmg} ⚔️</span>
         </div>
-      `;
-    }
+        <div class="battle-tag">${petAttack.isAdvantage ? '✨ 屬性相剋' : '一般攻擊'}</div>
+        <p style="color:var(--text-muted);margin:8px 0;">繼續培養寵物再來挑戰！</p>
+      </div>
+    `;
+    resultEl.innerHTML = resultHtml + `
+      <button class="boss-fight-btn" style="display:block;margin:14px auto;" onclick="document.getElementById('bossBattleResult').classList.add('hidden');renderBossPage();">確認</button>
+    `;
     renderBossPage();
     updateNavCoins();
     refreshUI();
-  }, 1500);
+  }, 3500);
 }
 
 // ====== 遠征探險 ======
@@ -1155,28 +1247,64 @@ function renderExpedition() {
 
   if (expStatus && expStatus.status === 'ongoing') {
     const pct = Math.floor(expStatus.progress);
+    const remainingSec = Math.ceil((expStatus.remaining || 0) / 1000);
+    const expPets = (member.expedition?.petIds || []).map(id => member.pets.find(p => p.instanceId === id)).filter(Boolean);
+    const petImages = expPets.map(p => `
+      <img src="${getImageUrl(p.templateId)}" alt="${p.name}" class="expedition-travel-pet"
+           onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2280%22>🐾</text></svg>'">
+    `).join('');
     statusEl.innerHTML = `
-      <div class="expedition-ongoing">
-        <p>🌍 探險中...</p>
-        <div class="progress-bar-bg">
-          <div class="progress-bar-fill" style="width:${pct}%"></div>
+      <div class="expedition-travel">
+        <div class="expedition-sky"></div>
+        <div class="expedition-mountains"></div>
+        <div class="expedition-ground"></div>
+        <div class="expedition-pets-row">${petImages}</div>
+        <div class="expedition-chest">🗺️</div>
+        <div class="expedition-travel-progress">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" style="width:${pct}%"></div>
+          </div>
+          <span class="expedition-pct">${pct}%</span>
         </div>
-        <p class="expedition-pct">${pct}%</p>
+        <div class="expedition-time">⏱️ 約 ${remainingSec} 秒</div>
       </div>
     `;
     teamEl.innerHTML = '';
     return;
   }
 
-  // Not started - show team selection
-  statusEl.innerHTML = '<p style="color:var(--text-muted);">選擇寵物派出遠征！</p>';
+  // Not started - show requirement + reward info
+  const check = canStartExpedition(member.id);
+  const done = getCompletedTaskCount(member.id);
+  const rewardInfo = getExpeditionRewardInfo();
+  const today = new Date().toDateString();
+  const alreadyDone = member.lastExpeditionDate === today;
 
-  if (!member.pets || member.pets.length === 0) {
-    teamEl.innerHTML = '<p style="color:#999;">還沒有寵物可以去探險 🥺</p>';
+  statusEl.innerHTML = `
+    <div class="expedition-info">
+      <div class="expedition-req ${check.ok ? 'req-met' : 'req-locked'}">
+        <strong>🔒 遠征條件</strong>
+        <p>📋 今日完成任務：${done} / ${EXPEDITION_REQUIRED_TASKS} ${done >= EXPEDITION_REQUIRED_TASKS ? '✅' : '❌'}</p>
+        <p>📅 每日限制：${alreadyDone ? '❌ 已用過' : '✅ 還可遠征'}</p>
+        ${!check.ok ? `<p class="expedition-reason">${check.reason}</p>` : '<p class="expedition-reason" style="color:var(--success);">✅ 條件滿足，可以出發！</p>'}
+      </div>
+      <div class="expedition-rewards-info">
+        <strong>🎁 遠征獎勵</strong>
+        <table class="expedition-reward-table">
+          <tr><th>派出寵物</th><th>基礎獎勵</th></tr>
+          ${rewardInfo.examples.map(ex => `<tr><td>${ex.pets} 隻</td><td>💰 +${ex.total}</td></tr>`).join('')}
+        </table>
+        <p class="expedition-bonus-info">🌟 額外驚喜（${Math.round(rewardInfo.bonusChance * 100)}% 機率）：+${rewardInfo.bonusMin}~${rewardInfo.bonusMax}💰</p>
+      </div>
+    </div>
+  `;
+
+  if (!check.ok || !member.pets || member.pets.length === 0) {
+    teamEl.innerHTML = '';
     return;
   }
 
-  const lowAnim = getLowAnimMode();
+  selectedExpeditionPets = [];
   teamEl.innerHTML = `
     <div class="expedition-pick">
       <p style="margin-bottom:10px;">點選寵物加入遠征隊伍（最多 3 隻）</p>
@@ -1248,6 +1376,7 @@ function claimExpedition() {
   }
   resultEl.innerHTML = `
     <div class="expedition-reward-box">
+      <div class="expedition-chest-open">🎁</div>
       <h3>🎊 探索完成！</h3>
       <div class="expedition-coins">💰 +${result.coins} 金幣</div>
       ${bonusHtml}
@@ -1260,30 +1389,18 @@ function claimExpedition() {
   updateNavCoins();
 }
 
-// ====== 音效與動畫設定 ======
+// ====== 設定 ======
 function renderSettingsUI() {
-  const settings = getSettings();
-  const sfxEl = document.getElementById('settingSfx');
-  const bgmEl = document.getElementById('settingBgm');
   const lowAnimEl = document.getElementById('settingLowAnim');
-  if (sfxEl) sfxEl.checked = settings.sfx;
-  if (bgmEl) bgmEl.checked = settings.bgm;
   if (lowAnimEl) {
     lowAnimEl.checked = getLowAnimMode();
   }
 }
 
-function toggleSetting(key, value) {
-  if (key === 'lowAnim') {
-    setLowAnimMode(value);
-  } else {
-    const settings = getSettings();
-    settings[key] = value;
-    saveSettings(settings);
-  }
-  showToast(key === 'sfx' ? (value ? '🔊 音效已開啟' : '🔇 音效已關閉') :
-            key === 'bgm' ? (value ? '🎵 BGM 已開啟' : '🔇 BGM 已關閉') :
-            (value ? '🐢 低動畫模式已開啟' : '🐢 低動畫模式已關閉'));
+function toggleLowAnim(value) {
+  setLowAnimMode(value);
+  document.body.classList.toggle('low-anim', value);
+  showToast(value ? '🐢 低動畫模式已開啟' : '🐢 低動畫模式已關閉');
 }
 
 // ====== 自動每日重置（頁面載入時檢查）=====

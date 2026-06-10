@@ -681,6 +681,9 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   padding: 22px;
   background: var(--card-bg);
   border: 1px solid var(--card-border);
+  min-height: 200px;
+  position: relative;
+  overflow: hidden;
 }
 
 .gacha-result.hidden { display: none; }
@@ -692,27 +695,72 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   margin: 14px 0;
 }
 
-.gacha-result.spinning { text-align: center; padding: 36px; }
-.gacha-spinning { text-align: center; padding: 18px; }
+/* 扭蛋膠囊動畫 */
+.gacha-capsule-phase {
+  padding: 40px 20px;
+  text-align: center;
+}
 
-.gacha-spinning p {
-  margin-top: 14px;
+.gacha-capsule {
+  font-size: 5rem;
+  display: inline-block;
+  animation: capsuleShake 0.3s ease infinite alternate;
+  transform-origin: center bottom;
+}
+
+@keyframes capsuleShake {
+  0% { transform: rotate(-8deg) translateX(0); }
+  25% { transform: rotate(5deg) translateX(5px); }
+  50% { transform: rotate(-5deg) translateX(-3px); }
+  75% { transform: rotate(7deg) translateX(4px); }
+  100% { transform: rotate(-3deg) translateX(-2px); }
+}
+
+.gacha-capsule-label {
+  margin-top: 16px;
   color: var(--primary);
   font-weight: bold;
-  font-size: 1rem;
+  font-size: 1.1rem;
+  animation: capsulePulse 0.8s ease infinite alternate;
 }
 
-.spinner {
-  width: 50px;
-  height: 50px;
-  border: 5px solid rgba(102,126,234,0.2);
-  border-top-color: var(--primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin: 0 auto;
+@keyframes capsulePulse {
+  from { opacity: 0.6; transform: scale(1); }
+  to { opacity: 1; transform: scale(1.05); }
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.gacha-capsule.legendary {
+  filter: drop-shadow(0 0 15px #ffd85d);
+  animation: capsuleShake 0.3s ease infinite alternate, legendaryCapsuleGlow 1.05s ease infinite alternate;
+}
+
+@keyframes legendaryCapsuleGlow {
+  from { filter: drop-shadow(0 0 10px #ffd85d); }
+  to { filter: drop-shadow(0 0 25px #ffd85d); }
+}
+
+.gacha-capsule.open {
+  animation: capsuleOpen 0.6s ease forwards;
+}
+
+@keyframes capsuleOpen {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.8); opacity: 0.8; filter: brightness(2); }
+  100% { transform: scale(2.5); opacity: 0; filter: blur(4px); }
+}
+
+/* 卡片翻開 */
+.gacha-card-reveal {
+  animation: cardReveal 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+  transform: scale(0.5) translateY(30px);
+}
+
+@keyframes cardReveal {
+  0% { opacity: 0; transform: scale(0.5) translateY(30px); filter: blur(4px); }
+  60% { opacity: 1; transform: scale(1.08) translateY(-5px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
 
 .gacha-result.legendary-reveal {
   border: 3px solid var(--accent);
@@ -727,6 +775,21 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
 .gacha-result.legendary-reveal h3 {
   color: var(--accent);
   font-size: 1.4rem;
+}
+
+/* 星星爆發（傳說限定）*/
+.gacha-sparkle-burst {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 50%, rgba(255,215,0,0.2), transparent 70%);
+  animation: sparkleBurst 0.8s ease forwards;
+}
+
+@keyframes sparkleBurst {
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { opacity: 1; transform: scale(1.5); }
+  100% { opacity: 0; transform: scale(2); }
 }
 
 /* ====== 寵物網格 ====== */
@@ -1527,6 +1590,33 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   pointer-events: none;
 }
 
+.evo-particle {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffd700;
+  pointer-events: none;
+  opacity: 0;
+  animation: evoParticleFloat 2.5s ease infinite;
+}
+
+.evo-particle:nth-child(1) { left: 15%; top: 20%; animation-delay: 0s; width: 4px; height: 4px; }
+.evo-particle:nth-child(2) { left: 40%; top: 10%; animation-delay: 0.6s; background: #fff; width: 3px; height: 3px; }
+.evo-particle:nth-child(3) { left: 70%; top: 25%; animation-delay: 1.2s; width: 5px; height: 5px; }
+.evo-particle:nth-child(4) { left: 25%; top: 60%; animation-delay: 0.3s; background: #fff; width: 4px; height: 4px; }
+.evo-particle:nth-child(5) { left: 60%; top: 50%; animation-delay: 0.9s; width: 3px; height: 3px; }
+.evo-particle:nth-child(6) { left: 85%; top: 15%; animation-delay: 1.5s; background: #fff; width: 5px; height: 5px; }
+.evo-particle:nth-child(7) { left: 50%; top: 70%; animation-delay: 0.5s; width: 4px; height: 4px; }
+.evo-particle:nth-child(8) { left: 10%; top: 45%; animation-delay: 1.8s; background: #fff; width: 3px; height: 3px; }
+
+@keyframes evoParticleFloat {
+  0% { opacity: 0; transform: translateY(20px) scale(0.5); }
+  30% { opacity: 0.8; }
+  70% { opacity: 0.6; }
+  100% { opacity: 0; transform: translateY(-40px) scale(1.2); }
+}
+
 .evo-title {
   font-size: 1.5rem;
   color: #ffd700;
@@ -1751,24 +1841,63 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   margin-top: 14px;
 }
 
-.battle-animation {
+/* ====== 戰鬥場景 ====== */
+.battle-scene {
   text-align: center;
-  padding: 30px;
+  padding: 30px 20px;
   background: var(--card-bg);
   border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+  min-height: 260px;
 }
 
-.battle-fighter {
+.battle-arena {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 20px;
-  margin: 16px 0;
-  font-size: 2.5rem;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.battle-vs {
-  font-size: 1.5rem;
+.battle-combatant {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 120px;
+}
+
+.battle-pet-img {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  animation: battlePetBounce 0.6s ease infinite alternate;
+}
+
+@keyframes battlePetBounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-6px); }
+}
+
+.boss-emoji-large {
+  font-size: 4rem;
+  animation: battleBossHover 0.8s ease infinite alternate;
+}
+
+@keyframes battleBossHover {
+  from { transform: translateY(0) scale(1); }
+  to { transform: translateY(-4px) scale(1.05); }
+}
+
+.battle-combatant-name {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--text-light);
+}
+
+.battle-vs-area {
+  font-size: 1.8rem;
   color: var(--accent-red);
   animation: battleVSPulse 0.5s ease infinite alternate;
 }
@@ -1778,19 +1907,154 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   to { transform: scale(1.2); }
 }
 
-.battle-win, .battle-lose {
-  text-align: center;
-  padding: 24px;
-  border-radius: 16px;
-  background: var(--card-bg);
+.battle-projectiles {
+  position: relative;
+  height: 10px;
+  margin: 10px 0;
 }
 
-.battle-win h3 {
+.battle-projectile {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px rgba(255,255,255,0.6);
+  opacity: 0;
+}
+
+.battle-projectile.pet-attack {
+  animation: projectileFlyRight 0.7s ease forwards;
+  animation-delay: calc(var(--i) * 0.15s);
+}
+
+.battle-projectile.boss-attack {
+  animation: projectileFlyLeft 0.7s ease forwards;
+  animation-delay: calc(var(--i) * 0.15s);
+}
+
+@keyframes projectileFlyRight {
+  0% { left: 25%; opacity: 1; transform: scale(1); }
+  50% { opacity: 1; }
+  100% { left: 72%; opacity: 0; transform: scale(1.5); }
+}
+
+@keyframes projectileFlyLeft {
+  0% { left: 72%; opacity: 1; transform: scale(1); }
+  50% { opacity: 1; }
+  100% { left: 25%; opacity: 0; transform: scale(1.5); }
+}
+
+/* 戰鬥傷害文字 */
+.battle-damage-overlay {
+  position: relative;
+  height: 40px;
+  margin: 4px 0;
+}
+
+.battle-damage-pop {
+  position: absolute;
+  font-size: 1.6rem;
+  font-weight: bold;
+  animation: damageFloat 1s ease forwards;
+  pointer-events: none;
+}
+
+.battle-damage-pop.pet-damage {
+  right: 10%;
+  color: var(--accent-red);
+}
+
+.battle-damage-pop.boss-damage {
+  left: 10%;
+  color: #ff6b9d;
+}
+
+@keyframes damageFloat {
+  0% { opacity: 1; transform: translateY(0) scale(0.5); }
+  30% { opacity: 1; transform: translateY(-10px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-30px) scale(1); }
+}
+
+/* 命中閃光 */
+.battle-hit-flash {
+  position: absolute;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: hitFlash 0.5s ease forwards;
+  pointer-events: none;
+}
+
+.battle-hit-flash.pet-hit {
+  right: 5%;
+  top: 20%;
+  background: radial-gradient(circle, rgba(255,71,87,0.4), transparent 70%);
+}
+
+.battle-hit-flash.boss-hit {
+  left: 5%;
+  top: 20%;
+  background: radial-gradient(circle, rgba(255,107,157,0.4), transparent 70%);
+}
+
+@keyframes hitFlash {
+  0% { opacity: 1; transform: scale(0.5); }
+  50% { opacity: 0.8; transform: scale(1.5); }
+  100% { opacity: 0; transform: scale(2); }
+}
+
+.battle-fight-label {
+  margin-top: 14px;
+  font-weight: bold;
+  color: var(--primary);
+  animation: fightLabelPulse 0.6s ease infinite alternate;
+}
+
+@keyframes fightLabelPulse {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
+}
+
+/* 戰鬥結果 */
+.battle-result-box {
+  text-align: center;
+  padding: 20px;
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.battle-win-box {
+  background: var(--card-bg);
+  border: 2px solid var(--success);
+}
+
+.battle-lose-box {
+  background: var(--card-bg);
+  border: 2px solid var(--accent-red);
+}
+
+.battle-hit-burst {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(46,213,115,0.15), transparent 70%);
+  animation: hitBurst 0.6s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes hitBurst {
+  0% { opacity: 0; transform: scale(0.5); }
+  50% { opacity: 1; transform: scale(1.5); }
+  100% { opacity: 0; transform: scale(2); }
+}
+
+.battle-win-box h3 {
   color: var(--success);
   font-size: 1.3rem;
+  position: relative;
 }
 
-.battle-lose h3 {
+.battle-lose-box h3 {
   color: var(--accent-red);
   font-size: 1.1rem;
 }
@@ -1800,6 +2064,12 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   font-weight: bold;
   color: var(--primary);
   margin: 10px 0;
+  animation: damagePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes damagePop {
+  0% { transform: scale(0.5); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .battle-tag {
@@ -1811,6 +2081,23 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   font-weight: bold;
   font-size: 0.85rem;
   margin: 6px 0;
+}
+
+.battle-exchange {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin: 10px 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+.battle-exchange span {
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.3);
 }
 
 .battle-reward {
@@ -1879,6 +2166,78 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   color: var(--text-muted);
 }
 
+/* ====== 遠征條件與獎勵表 ====== */
+.expedition-info {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.expedition-req, .expedition-rewards-info {
+  flex: 1;
+  min-width: 180px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.expedition-req strong,
+.expedition-rewards-info strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.expedition-req p {
+  font-size: 0.85rem;
+  margin: 4px 0;
+  color: var(--text-light);
+}
+
+.expedition-req.req-met {
+  border-left: 4px solid var(--success);
+}
+
+.expedition-req.req-locked {
+  border-left: 4px solid var(--accent-red);
+}
+
+.expedition-reason {
+  margin-top: 6px !important;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.expedition-reward-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 8px 0;
+}
+
+.expedition-reward-table th {
+  text-align: left;
+  padding: 4px 8px;
+  color: var(--text-muted);
+  font-weight: bold;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.expedition-reward-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+
+.expedition-bonus-info {
+  font-size: 0.8rem !important;
+  color: var(--accent) !important;
+  margin-top: 6px !important;
+  font-weight: bold;
+}
+
 .expedition-start-btn, .expedition-claim-btn {
   padding: 10px 28px;
   border: none;
@@ -1904,24 +2263,119 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   box-shadow: 0 6px 20px rgba(67,233,123,0.3);
 }
 
-.expedition-ongoing, .expedition-complete {
+.expedition-travel {
+  position: relative;
+  text-align: center;
+  padding: 24px 20px 20px;
+  background: linear-gradient(180deg, #87CEEB 0%, #B0E0E6 40%, #90EE90 70%, #228B22 100%);
+  border-radius: 16px;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.expedition-sky {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 0%, rgba(255,255,200,0.3), transparent 60%);
+  pointer-events: none;
+}
+
+.expedition-mountains {
+  position: absolute;
+  bottom: 50px;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background:
+    radial-gradient(ellipse 80px 50px at 20% 100%, #5a8a5a, transparent),
+    radial-gradient(ellipse 100px 60px at 50% 100%, #4a7a4a, transparent),
+    radial-gradient(ellipse 70px 40px at 80% 100%, #6a9a6a, transparent);
+  pointer-events: none;
+}
+
+.expedition-ground {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  background: linear-gradient(180deg, #6ab04c, #4a8a2c);
+  pointer-events: none;
+}
+
+.expedition-pets-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 40px 0 20px;
+  position: relative;
+  z-index: 1;
+}
+
+.expedition-travel-pet {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  animation: petWalk 0.5s ease infinite alternate;
+}
+
+.expedition-travel-pet:nth-child(2) { animation-delay: 0.1s; }
+.expedition-travel-pet:nth-child(3) { animation-delay: 0.2s; }
+
+@keyframes petWalk {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-5px) rotate(2deg); }
+}
+
+.expedition-chest {
+  font-size: 2rem;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 10px;
+  animation: chestGlow 1.5s ease infinite alternate;
+}
+
+@keyframes chestGlow {
+  from { transform: scale(1); filter: brightness(1); }
+  to { transform: scale(1.1); filter: brightness(1.2); }
+}
+
+.expedition-travel-progress {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.expedition-time {
+  position: relative;
+  z-index: 1;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: white;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  font-weight: bold;
+}
+
+.expedition-travel-progress .progress-bar-bg {
+  flex: 1;
+}
+
+.expedition-pct {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: white;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  min-width: 40px;
+}
+
+.expedition-complete {
   text-align: center;
   padding: 24px;
   background: var(--card-bg);
   border-radius: 16px;
-}
-
-.expedition-ongoing p:first-child {
-  font-size: 1.1rem;
-  font-weight: bold;
-  margin-bottom: 12px;
-}
-
-.expedition-pct {
-  font-size: 1.3rem;
-  font-weight: bold;
-  color: var(--primary);
-  margin-top: 8px;
 }
 
 .expedition-result {
@@ -1933,6 +2387,17 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   padding: 24px;
   background: var(--card-bg);
   border-radius: 16px;
+}
+
+.expedition-chest-open {
+  font-size: 3.5rem;
+  animation: chestOpen 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes chestOpen {
+  0% { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+  50% { transform: scale(1.3) rotate(10deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
 }
 
 .expedition-reward-box h3 {
@@ -1957,6 +2422,20 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   font-size: 0.9rem;
   margin: 8px 0;
   animation: pulse 1.5s infinite;
+}
+
+/* ====== 低動畫模式 ====== */
+body.low-anim * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+body.low-anim .spinner,
+body.low-anim .pet-card-sparkle,
+body.low-anim .evo-sparkle-bg,
+body.low-anim .gacha-spinning,
+body.low-anim .toast {
+  display: none !important;
 }
 
 /* ====== 寵物戰力徽章 ====== */
