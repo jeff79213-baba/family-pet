@@ -232,6 +232,37 @@
     </div>
   </div>
 
+  <!-- ====== 成員密碼驗證 Modal ====== -->
+  <div id="memberPasswordModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 id="memberPwdTitle">🔒 成員密碼</h3>
+      <p style="color:#666;font-size:0.9rem;margin-bottom:12px;">請輸入密碼以切換到此成員</p>
+      <div class="modal-error" id="memberPwdError">❌ 密碼錯誤，請重試</div>
+      <input type="password" id="memberPwdInput" placeholder="請輸入密碼" onkeydown="if(event.key==='Enter')verifyMemberPasswordModal()">
+      <div class="modal-btns">
+        <button onclick="verifyMemberPasswordModal()" class="modal-btn confirm">確認</button>
+        <button onclick="closeMemberPasswordModal()" class="modal-btn cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 成員設定密碼 Modal ====== -->
+  <div id="memberSetPwdModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 id="memberSetPwdTitle">🔑 設定密碼</h3>
+      <p style="color:#666;font-size:0.9rem;margin-bottom:12px;" id="memberSetPwdHint"></p>
+      <div class="modal-error" id="memberSetPwdError"></div>
+      <div id="memberSetOldPwdWrap">
+        <input type="password" id="memberSetOldPwd" placeholder="舊密碼" onkeydown="if(event.key==='Enter')document.getElementById('memberSetNewPwd').focus()">
+      </div>
+      <input type="password" id="memberSetNewPwd" placeholder="新密碼（至少 4 位）" onkeydown="if(event.key==='Enter')confirmMemberSetPwd()">
+      <div class="modal-btns">
+        <button onclick="confirmMemberSetPwd()" class="modal-btn confirm">確認</button>
+        <button onclick="closeMemberSetPwdModal()" class="modal-btn cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ====== 寵物卡片 Modal ====== -->
   <div id="petCardModal" class="modal-overlay hidden" onclick="closePetCard(event)">
     <div class="pet-card-modal" id="petCardContent">

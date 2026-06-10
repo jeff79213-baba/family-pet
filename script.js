@@ -67,10 +67,13 @@ function renderMemberSelector() {
 
   data.members.forEach(m => {
     const active = current && m.id === current.id ? 'active' : '';
+    const hasPwd = hasMemberPassword(m.id);
     html += `
       <div class="member-btn ${active}" onclick="switchMember('${m.id}')">
         <span class="member-avatar">${m.avatar || '👤'}</span>
         <span class="member-name">${m.name}</span>
+        ${hasPwd ? '<span class="lock-icon">🔒</span>' : ''}
+        <span class="member-pwd-btn" onclick="event.stopPropagation();showMemberPwdSetting('${m.id}')" title="設定密碼">🔑</span>
       </div>
     `;
   });
@@ -86,6 +89,10 @@ function renderMemberSelector() {
 }
 
 function switchMember(id) {
+  if (hasMemberPassword(id)) {
+    showMemberPasswordModal(id);
+    return;
+  }
   selectMember(id);
   refreshUI();
 }
@@ -112,6 +119,90 @@ function verifyParentPassword() {
     document.getElementById('passwordInput').value = '';
     document.getElementById('passwordInput').focus();
   }
+}
+
+// ====== 成員密碼彈窗（切換成員時驗證）=====
+let pendingMemberId = null;
+
+function showMemberPasswordModal(memberId) {
+  pendingMemberId = memberId;
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  document.getElementById('memberPwdTitle').textContent = `🔒 ${member?.name || ''} 的密碼`;
+  document.getElementById('memberPwdInput').value = '';
+  document.getElementById('memberPwdError').style.display = 'none';
+  document.getElementById('memberPasswordModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('memberPwdInput').focus(), 100);
+}
+
+function closeMemberPasswordModal() {
+  document.getElementById('memberPasswordModal').classList.add('hidden');
+  pendingMemberId = null;
+}
+
+function verifyMemberPasswordModal() {
+  const input = document.getElementById('memberPwdInput').value;
+  if (pendingMemberId && verifyMemberPassword(pendingMemberId, input)) {
+    closeMemberPasswordModal();
+    selectMember(pendingMemberId);
+    pendingMemberId = null;
+    refreshUI();
+  } else {
+    document.getElementById('memberPwdError').style.display = 'block';
+    document.getElementById('memberPwdInput').value = '';
+    document.getElementById('memberPwdInput').focus();
+  }
+}
+
+// ====== 小孩自行設定密碼彈窗 ======
+function showMemberPwdSetting(memberId) {
+  pendingMemberId = memberId;
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  const hasPwd = hasMemberPassword(memberId);
+  document.getElementById('memberSetPwdTitle').textContent = hasPwd ? `🔑 修改 ${member?.name || ''} 的密碼` : `🔑 為 ${member?.name || ''} 設定密碼`;
+  document.getElementById('memberSetPwdHint').textContent = hasPwd ? '請先輸入舊密碼，再設定新密碼' : '設定密碼後，點選此成員需要輸入密碼';
+  document.getElementById('memberSetOldPwd').value = '';
+  document.getElementById('memberSetNewPwd').value = '';
+  document.getElementById('memberSetPwdError').style.display = 'none';
+  document.getElementById('memberSetOldPwdWrap').style.display = hasPwd ? 'block' : 'none';
+  document.getElementById('memberSetPwdModal').classList.remove('hidden');
+}
+
+function closeMemberSetPwdModal() {
+  document.getElementById('memberSetPwdModal').classList.add('hidden');
+  pendingMemberId = null;
+}
+
+function confirmMemberSetPwd() {
+  const oldPwd = document.getElementById('memberSetOldPwd').value;
+  const newPwd = document.getElementById('memberSetNewPwd').value;
+  const errEl = document.getElementById('memberSetPwdError');
+
+  if (!newPwd || newPwd.length < 4) {
+    errEl.textContent = '❌ 密碼至少 4 位';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (hasMemberPassword(pendingMemberId) && !verifyMemberPassword(pendingMemberId, oldPwd)) {
+    errEl.textContent = '❌ 舊密碼錯誤';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  setMemberPassword(pendingMemberId, newPwd);
+  closeMemberSetPwdModal();
+  refreshUI();
+  showToast('🔑 密碼已設定');
+}
+
+function clearMemberPassword(memberId) {
+  if (!confirm('確定清除此成員的密碼？')) return;
+  setMemberPassword(memberId, '');
+  if (isAdminMode) renderAdminMemberList();
+  else refreshUI();
+  showToast('🔓 密碼已清除');
 }
 
 function adminChangePassword() {
@@ -237,13 +328,29 @@ function renderAdminMemberList() {
     return;
   }
 
-  container.innerHTML = data.members.map(m => `
+  container.innerHTML = data.members.map(m => {
+    const hasPwd = hasMemberPassword(m.id);
+    return `
     <div class="admin-member-item">
       <span class="admin-member-avatar">${m.avatar || '👤'}</span>
-      <span class="admin-member-name">${m.name}</span>
+      <span class="admin-member-name">${m.name} ${hasPwd ? '🔒' : ''}</span>
+      <button onclick="adminSetMemberPwd('${m.id}')" class="admin-btn edit">${hasPwd ? '🔑 修改密碼' : '🔑 設定密碼'}</button>
+      ${hasPwd ? `<button onclick="clearMemberPassword('${m.id}')" class="admin-btn delete">🔓 清除</button>` : ''}
       <button onclick="adminDeleteMember('${m.id}')" class="admin-btn delete">🗑️ 刪除</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+function adminSetMemberPwd(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return;
+  const newPwd = prompt(`為「${member.name}」設定新密碼（至少 4 位，留空 = 取消）`);
+  if (!newPwd) return;
+  if (newPwd.length < 4) { showToast('❌ 密碼至少 4 位'); return; }
+  setMemberPassword(memberId, newPwd);
+  renderAdminMemberList();
+  showToast(`🔑 ${member.name} 的密碼已設定`);
 }
 
 function adminDeleteMember(memberId) {
@@ -373,6 +480,7 @@ function initGame() {
         pets: [],
         todayTasks: {},
         lastBossAt: null,
+        password: '',
         expedition: null,
         expeditionRewards: 0,
         lowAnimMode: false,
@@ -452,11 +560,24 @@ function renderTasks() {
 
   const progressPct = totalPossible > 0 ? Math.min(100, (todayEarned / totalPossible) * 100) : 0;
 
+  let pendingTotal = 0;
+  let availableTotal = 0;
+  tasks.forEach(task => {
+    const state = member.todayTasks[task.id];
+    if (state === 'approved' || state === true) return;
+    if (state === 'pending') pendingTotal += task.reward;
+    else availableTotal += task.reward;
+  });
+
   let html = `
     <div class="task-progress">
       <div class="task-progress-label">📅 今日已賺：<strong>${todayEarned}</strong> 💰</div>
       <div class="progress-bar-bg">
         <div class="progress-bar-fill" style="width:${progressPct}%"></div>
+      </div>
+      <div class="task-summary">
+        <div class="task-summary-item pending">⏳ 待審核：<strong>+${pendingTotal}</strong>💰</div>
+        <div class="task-summary-item available">📋 可完成：<strong>+${availableTotal}</strong>💰</div>
       </div>
     </div>
   `;

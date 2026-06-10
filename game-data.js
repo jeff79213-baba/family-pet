@@ -101,6 +101,7 @@ function addMember(name, avatar) {
     pets: [],
     todayTasks: {},
     isParent: false,
+    password: '',
     lastBossAt: null,
     expedition: null,
     expeditionRewards: 0,
@@ -134,6 +135,28 @@ function removeMember(id) {
   }
   saveData(data);
   return data;
+}
+
+// ====== 成員密碼 ======
+function setMemberPassword(memberId, password) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return false;
+  member.password = password || '';
+  saveData(data);
+  return true;
+}
+
+function hasMemberPassword(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  return member ? !!(member.password) : false;
+}
+
+function verifyMemberPassword(memberId, input) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  return member && member.password === input;
 }
 
 // ====== 任務系統 ======

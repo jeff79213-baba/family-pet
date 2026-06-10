@@ -309,6 +309,8 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
 .member-btn.active .member-avatar { font-size: 2.4rem; }
 .member-btn .member-name { font-size: 0.8rem; font-weight: bold; }
 .member-btn .lock-icon { font-size: 0.65rem; position: absolute; top: 4px; right: 6px; }
+.member-btn .member-pwd-btn { font-size: 0.6rem; position: absolute; bottom: 2px; right: 4px; cursor: pointer; opacity: 0.5; transition: 0.2s; }
+.member-btn .member-pwd-btn:hover { opacity: 1; transform: scale(1.2); }
 
 .member-btn.add-btn {
   background: rgba(255,255,255,0.4);
@@ -407,6 +409,28 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   font-weight: bold;
   color: var(--accent);
   text-align: center;
+}
+
+.task-summary {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.task-summary-item {
+  font-size: 0.85rem;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.5);
+}
+
+.task-summary-item.pending {
+  border-left: 3px solid #f59e0b;
+}
+
+.task-summary-item.available {
+  border-left: 3px solid var(--primary);
 }
 
 /* ====== 任務列表 ====== */
@@ -1126,6 +1150,10 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   flex: 1;
   font-weight: bold;
   font-size: 0.95rem;
+}
+
+.admin-member-item .admin-btn {
+  white-space: nowrap;
 }
 
 /* ====== 頭像選擇器 ====== */
