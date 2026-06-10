@@ -359,32 +359,52 @@ function renderAdminBonusSection() {
   const container = document.getElementById('bonusMemberSelect');
   if (!container) return;
   const data = getData();
-  container.innerHTML = data.members.map(m => `
+  container.innerHTML = `
+    <div style="width:100%;margin-bottom:6px;">
+      <label style="font-size:0.8rem;cursor:pointer;color:var(--text-muted);" onclick="toggleAllBonusMembers()">
+        ☑️ 全選 / 取消
+      </label>
+    </div>
+  ` + data.members.map(m => `
     <label class="bonus-member-item">
-      <input type="radio" name="bonusMember" value="${m.id}">
+      <input type="checkbox" class="bonus-check" value="${m.id}">
       <span>${m.avatar || '👤'} ${m.name}</span>
     </label>
   `).join('');
 }
 
+function toggleAllBonusMembers() {
+  const checks = document.querySelectorAll('.bonus-check');
+  const someUnchecked = Array.from(checks).some(c => !c.checked);
+  checks.forEach(c => c.checked = someUnchecked);
+}
+
 function sendBonusFromAdmin() {
-  const selected = document.querySelector('input[name="bonusMember"]:checked');
-  if (!selected) { showToast('❌ 請選擇一位成員'); return; }
-  const memberId = selected.value;
+  const checked = document.querySelectorAll('.bonus-check:checked');
+  if (checked.length === 0) { showToast('❌ 請選擇至少一位成員'); return; }
+
   const amount = parseInt(document.getElementById('bonusAmount').value);
   const reason = document.getElementById('bonusReason').value.trim();
 
   if (!amount || amount < 1) { showToast('❌ 請輸入有效的金幣數量'); return; }
 
-  const ok = sendBonus(memberId, amount, reason);
-  if (!ok) { showToast('❌ 發送失敗'); return; }
+  const data = getData();
+  let sentCount = 0;
+  let names = [];
+
+  checked.forEach(cb => {
+    const ok = sendBonus(cb.value, amount, reason);
+    if (ok) {
+      sentCount++;
+      const member = data.members.find(m => m.id === cb.value);
+      if (member) names.push(member.name);
+    }
+  });
 
   document.getElementById('bonusAmount').value = '';
   document.getElementById('bonusReason').value = '';
 
-  const data = getData();
-  const member = data.members.find(m => m.id === memberId);
-  showToast(`🧧 已發送 +${amount}💰 給 ${member ? member.name : ''}${reason ? '（' + reason + '）' : ''}`);
+  showToast(`🧧 已發送 +${amount}💰 給 ${names.join('、')}${reason ? '（' + reason + '）' : ''}`);
   refreshUI();
 }
 
