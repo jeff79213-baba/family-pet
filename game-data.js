@@ -316,6 +316,22 @@ function getMemberPets(memberId) {
   return member ? member.pets : [];
 }
 
+// ====== 獎勵發送 ======
+function sendBonus(memberId, amount, reason) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member || amount <= 0) return false;
+  member.coins += amount;
+  if (!member.bonusLog) member.bonusLog = [];
+  member.bonusLog.push({
+    amount,
+    reason: reason || '🎁 獎勵',
+    date: new Date().toISOString()
+  });
+  saveData(data);
+  return true;
+}
+
 // ====== 金幣 ======
 function addCoins(memberId, amount) {
   const data = getData();

@@ -28,6 +28,7 @@ function refreshUI() {
     renderAdminPendingTasks();
     renderThemeSelector();
     renderSettingsUI();
+    renderAdminBonusSection();
     document.getElementById('adminNavLink').style.display = 'inline-block';
   } else {
     document.getElementById('adminNavLink').style.display = 'none';
@@ -351,6 +352,40 @@ function adminSetMemberPwd(memberId) {
   setMemberPassword(memberId, newPwd);
   renderAdminMemberList();
   showToast(`🔑 ${member.name} 的密碼已設定`);
+}
+
+// ====== 管理後台 - 發送獎勵 ======
+function renderAdminBonusSection() {
+  const container = document.getElementById('bonusMemberSelect');
+  if (!container) return;
+  const data = getData();
+  container.innerHTML = data.members.map(m => `
+    <label class="bonus-member-item">
+      <input type="radio" name="bonusMember" value="${m.id}">
+      <span>${m.avatar || '👤'} ${m.name}</span>
+    </label>
+  `).join('');
+}
+
+function sendBonusFromAdmin() {
+  const selected = document.querySelector('input[name="bonusMember"]:checked');
+  if (!selected) { showToast('❌ 請選擇一位成員'); return; }
+  const memberId = selected.value;
+  const amount = parseInt(document.getElementById('bonusAmount').value);
+  const reason = document.getElementById('bonusReason').value.trim();
+
+  if (!amount || amount < 1) { showToast('❌ 請輸入有效的金幣數量'); return; }
+
+  const ok = sendBonus(memberId, amount, reason);
+  if (!ok) { showToast('❌ 發送失敗'); return; }
+
+  document.getElementById('bonusAmount').value = '';
+  document.getElementById('bonusReason').value = '';
+
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  showToast(`🧧 已發送 +${amount}💰 給 ${member ? member.name : ''}${reason ? '（' + reason + '）' : ''}`);
+  refreshUI();
 }
 
 function adminDeleteMember(memberId) {

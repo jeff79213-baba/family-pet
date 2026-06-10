@@ -200,6 +200,22 @@
       </div>
 
       <div class="admin-section">
+        <h3>🧧 發送獎勵</h3>
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
+          直接給某個成員金幣獎勵，不需要透過任務或考試
+        </p>
+        <div class="bonus-form">
+          <div class="bonus-member-select" id="bonusMemberSelect"></div>
+          <div class="bonus-inputs">
+            <input type="number" id="bonusAmount" placeholder="金幣數量" min="1" max="9999" style="flex:1;min-width:80px;">
+            <input type="text" id="bonusReason" placeholder="原因（選填，如：🥇 比賽第一名）" maxlength="30" style="flex:2;min-width:120px;">
+          </div>
+          <button onclick="sendBonusFromAdmin()" class="admin-btn bonus-send">🧧 發送！</button>
+          <span id="bonusMsg" class="bonus-msg"></span>
+        </div>
+      </div>
+
+      <div class="admin-section">
         <h3>💾 資料備份</h3>
         <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:12px;">
           匯出備份檔案，或從備份檔案還原所有資料
