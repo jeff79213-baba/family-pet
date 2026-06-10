@@ -334,8 +334,11 @@ function renderAdminMemberList() {
     return `
     <div class="admin-member-item">
       <span class="admin-member-avatar">${m.avatar || '👤'}</span>
-      <span class="admin-member-name">${m.name} ${hasPwd ? '🔒' : ''}</span>
-      <button onclick="adminSetMemberPwd('${m.id}')" class="admin-btn edit">${hasPwd ? '🔑 修改密碼' : '🔑 設定密碼'}</button>
+      <span class="admin-member-name">
+        ${m.name}
+        <span class="admin-pwd-status ${hasPwd ? 'locked' : 'unlocked'}">${hasPwd ? '🔒 已設定' : '🔓 無密碼'}</span>
+      </span>
+      <button onclick="adminSetMemberPwd('${m.id}')" class="admin-btn edit">${hasPwd ? '🔑 修改' : '🔑 設定密碼'}</button>
       ${hasPwd ? `<button onclick="clearMemberPassword('${m.id}')" class="admin-btn delete">🔓 清除</button>` : ''}
       <button onclick="adminDeleteMember('${m.id}')" class="admin-btn delete">🗑️ 刪除</button>
     </div>`;

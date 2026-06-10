@@ -1156,6 +1156,25 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   white-space: nowrap;
 }
 
+.admin-pwd-status {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 8px;
+  margin-left: 6px;
+  font-weight: bold;
+}
+
+.admin-pwd-status.locked {
+  background: rgba(255,215,0,0.2);
+  color: #b8860b;
+}
+
+.admin-pwd-status.unlocked {
+  background: rgba(150,150,150,0.15);
+  color: #888;
+}
+
 /* ====== 頭像選擇器 ====== */
 .avatar-selector {
   display: flex;
