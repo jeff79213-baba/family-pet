@@ -653,6 +653,11 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
 .exam-reward-badge { font-weight: bold; color: var(--success); font-size: 0.85rem; }
 .exam-no-reward { color: #ccc; font-size: 0.85rem; }
 
+.exam-status { font-size: 0.75rem; font-weight: bold; padding: 2px 8px; border-radius: 8px; }
+.exam-status.pending { background: #fef3c7; color: #d97706; }
+.exam-status.approved { background: #d1fae5; color: #059669; }
+.exam-status.rejected { background: #fce4ec; color: #e53935; }
+
 /* ====== 扭蛋 ====== */
 .gacha-area { text-align: center; margin: 36px 0; }
 
@@ -1223,6 +1228,20 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   flex: 1;
   font-weight: bold;
   font-size: 0.95rem;
+  min-width: 80px;
+}
+
+.admin-member-item .admin-member-coins {
+  font-weight: bold;
+  color: var(--accent);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.admin-member-item .admin-member-pets {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .admin-member-item .admin-btn {

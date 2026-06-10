@@ -362,24 +362,47 @@ function addExam(memberId, subject, score) {
     score,
     coinsEarned: 0,
     freePullEarned: 0,
+    status: 'no_reward',
     date: new Date().toISOString()
   };
 
   if (score >= 100) {
     record.coinsEarned = 5;
     record.freePullEarned = 1;
-    member.coins += 5;
-    member.freePulls = (member.freePulls || 0) + 1;
-    member.todayEarned = (member.todayEarned || 0) + 5;
+    record.status = 'pending';
   } else if (score >= 98) {
     record.coinsEarned = 5;
-    member.coins += 5;
-    member.todayEarned = (member.todayEarned || 0) + 5;
+    record.status = 'pending';
   }
 
   member.exams.push(record);
   saveData(data);
   return record;
+}
+
+function approveExam(memberId, examIndex) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return false;
+  const record = member.exams[examIndex];
+  if (!record || record.status !== 'pending') return false;
+  record.status = 'approved';
+  member.coins += record.coinsEarned;
+  member.freePulls = (member.freePulls || 0) + record.freePullEarned;
+  member.todayEarned = (member.todayEarned || 0) + record.coinsEarned;
+  saveData(data);
+  return true;
+}
+
+function rejectExam(memberId, examIndex) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return false;
+  const record = member.exams[examIndex];
+  if (!record || record.status !== 'pending') return false;
+  record.status = 'rejected';
+  saveData(data);
+  return true;
 }
 
 function getFreePullCount(memberId) {

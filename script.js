@@ -26,6 +26,7 @@ function refreshUI() {
     renderAdminMemberList();
     renderAdminAvatarSelector();
     renderAdminPendingTasks();
+    renderAdminPendingExams();
     renderThemeSelector();
     renderSettingsUI();
     renderAdminBonusSection();
@@ -331,6 +332,7 @@ function renderAdminMemberList() {
 
   container.innerHTML = data.members.map(m => {
     const hasPwd = hasMemberPassword(m.id);
+    const petCount = (m.pets || []).length;
     return `
     <div class="admin-member-item">
       <span class="admin-member-avatar">${m.avatar || '👤'}</span>
@@ -338,6 +340,8 @@ function renderAdminMemberList() {
         ${m.name}
         <span class="admin-pwd-status ${hasPwd ? 'locked' : 'unlocked'}">${hasPwd ? '🔒 已設定' : '🔓 無密碼'}</span>
       </span>
+      <span class="admin-member-coins">💰 ${m.coins}</span>
+      <span class="admin-member-pets">🐾 ${petCount}</span>
       <button onclick="adminSetMemberPwd('${m.id}')" class="admin-btn edit">${hasPwd ? '🔑 修改' : '🔑 設定密碼'}</button>
       ${hasPwd ? `<button onclick="clearMemberPassword('${m.id}')" class="admin-btn delete">🔓 清除</button>` : ''}
       <button onclick="adminDeleteMember('${m.id}')" class="admin-btn delete">🗑️ 刪除</button>
@@ -524,6 +528,52 @@ function adminRejectTask(memberId, taskId) {
   if (!ok) { showToast('❌ 退回失敗'); return; }
   renderAdminPendingTasks();
   showToast('↩️ 已退回，任務待重新提交');
+}
+
+// ====== 管理後台 - 待審核考試 ======
+function renderAdminPendingExams() {
+  const container = document.getElementById('adminPendingExams');
+  if (!container) return;
+  const data = getData();
+  let hasPending = false;
+  let html = '';
+
+  data.members.forEach(m => {
+    const pendings = (m.exams || []).map((e, i) => ({ exam: e, index: i })).filter(x => x.exam.status === 'pending');
+    if (pendings.length === 0) return;
+    hasPending = true;
+    html += `<div class="admin-pending-member"><strong>${m.avatar || '👤'} ${m.name}</strong></div>`;
+    pendings.forEach(({ exam, index }) => {
+      const reward = exam.score >= 100 ? '+5💰 🎫' : '+5💰';
+      html += `
+        <div class="admin-pending-item">
+          <span class="admin-pending-label">📝 ${exam.subject} ${exam.score} 分</span>
+          <span class="admin-pending-reward">${reward}</span>
+          <button onclick="adminApproveExam('${m.id}',${index})" class="admin-btn save">✅ 確認</button>
+          <button onclick="adminRejectExam('${m.id}',${index})" class="admin-btn delete">❌ 退回</button>
+        </div>
+      `;
+    });
+  });
+
+  if (!hasPending) {
+    html = '<p style="color:#999;text-align:center;padding:16px;">目前沒有待審核的考試 🎉</p>';
+  }
+  container.innerHTML = html;
+}
+
+function adminApproveExam(memberId, examIndex) {
+  const ok = approveExam(memberId, examIndex);
+  if (!ok) { showToast('❌ 審核失敗'); return; }
+  renderAdminPendingExams();
+  showToast('✅ 考試獎勵已發放');
+}
+
+function adminRejectExam(memberId, examIndex) {
+  const ok = rejectExam(memberId, examIndex);
+  if (!ok) { showToast('❌ 退回失敗'); return; }
+  renderAdminPendingExams();
+  showToast('↩️ 已退回考試');
 }
 
 // ====== 管理後台 - 主題選擇 ======
@@ -882,17 +932,15 @@ function handleExamSubmit() {
   if (isNaN(score) || score < 0 || score > 100) { alert('請輸入 0~100 的分數'); return; }
 
   const result = addExam(member.id, subject, score);
-  if (!result || (result.coinsEarned === 0 && result.freePullEarned === 0)) {
+  if (!result) return;
+  if (result.status === 'no_reward') {
     alert('❌ 考 98 分以上才有獎勵喔，繼續加油！');
   } else {
-    let msg = `🎉 ${subject} ${score} 分！`;
-    if (result.coinsEarned > 0) msg += ` +${result.coinsEarned}💰`;
-    if (result.freePullEarned > 0) msg += ` 🎫 免費一抽！`;
-    showToast(msg);
+    showToast(`📨 ${subject} ${score} 分已送出，等待家長審核`);
 
     const resultDiv = document.getElementById('examResult');
     resultDiv.classList.remove('hidden');
-    resultDiv.innerHTML = `<div class="exam-reward">${msg}</div>`;
+    resultDiv.innerHTML = `<div class="exam-reward" style="background:linear-gradient(135deg,#f59e0b,#e88a00);">📨 ${subject} ${score} 分，等待家長確認</div>`;
   }
 
   document.getElementById('examSubject').value = '';
@@ -915,11 +963,16 @@ function renderExamHistory() {
     let reward = '';
     if (record.coinsEarned > 0) reward += `+${record.coinsEarned}💰`;
     if (record.freePullEarned > 0) reward += ` 🎫`;
+    let statusBadge = '';
+    if (record.status === 'pending') statusBadge = '<span class="exam-status pending">⏳ 待審核</span>';
+    else if (record.status === 'approved') statusBadge = '<span class="exam-status approved">✅ 已確認</span>';
+    else if (record.status === 'rejected') statusBadge = '<span class="exam-status rejected">❌ 已退回</span>';
     return `<div class="exam-record">
       <span class="exam-date">${date}</span>
       <strong class="exam-subject">${record.subject}</strong>
       <span class="exam-score ${record.score >= 100 ? 'perfect' : record.score >= 98 ? 'great' : ''}">${record.score} 分</span>
       ${reward ? `<span class="exam-reward-badge">${reward}</span>` : '<span class="exam-no-reward">-</span>'}
+      ${statusBadge}
     </div>`;
   }).join('');
 }
