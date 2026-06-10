@@ -455,7 +455,13 @@ function renderAdminPendingTasks() {
     const pendings = tasks.filter(t => m.todayTasks[t.id] === 'pending');
     if (pendings.length === 0) return;
     hasPending = true;
-    html += `<div class="admin-pending-member"><strong>${m.avatar || '👤'} ${m.name}</strong></div>`;
+    html += `<div class="admin-pending-member">
+      <strong>${m.avatar || '👤'} ${m.name}</strong>
+      <div class="admin-pending-batch">
+        <button onclick="adminApproveAllMemberTasks('${m.id}')" class="admin-btn save" style="font-size:0.75rem;">✅ 全部確認</button>
+        <button onclick="adminRejectAllMemberTasks('${m.id}')" class="admin-btn delete" style="font-size:0.75rem;">❌ 全部退回</button>
+      </div>
+    </div>`;
     pendings.forEach(t => {
       html += `
         <div class="admin-pending-item">
@@ -472,6 +478,33 @@ function renderAdminPendingTasks() {
     html = '<p style="color:#999;text-align:center;padding:16px;">目前沒有待審核的任務 🎉</p>';
   }
   container.innerHTML = html;
+}
+
+function adminApproveAllMemberTasks(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return;
+  const tasks = getTaskDefs();
+  const pendings = tasks.filter(t => member.todayTasks[t.id] === 'pending');
+  if (pendings.length === 0) return;
+  let count = 0;
+  pendings.forEach(t => { if (approveTask(memberId, t.id)) count++; });
+  renderAdminPendingTasks();
+  renderAdminMemberList();
+  showToast(`✅ 已確認 ${member.name} 的 ${count} 項任務`);
+}
+
+function adminRejectAllMemberTasks(memberId) {
+  const data = getData();
+  const member = data.members.find(m => m.id === memberId);
+  if (!member) return;
+  const tasks = getTaskDefs();
+  const pendings = tasks.filter(t => member.todayTasks[t.id] === 'pending');
+  if (pendings.length === 0) return;
+  let count = 0;
+  pendings.forEach(t => { if (rejectTask(memberId, t.id)) count++; });
+  renderAdminPendingTasks();
+  showToast(`↩️ 已退回 ${member.name} 的 ${count} 項任務`);
 }
 
 function adminApproveTask(memberId, taskId) {

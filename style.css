@@ -937,6 +937,16 @@ h2 { font-size: 1.4rem; margin-bottom: 6px; }
   font-size: 0.95rem;
   margin: 10px 0 4px;
   padding: 4px 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.admin-pending-batch {
+  display: flex;
+  gap: 4px;
 }
 
 .admin-pending-item {
